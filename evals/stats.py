@@ -15,7 +15,7 @@ is about.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from math import comb
+from math import exp, fsum, inf, lgamma, log, log1p
 
 
 @dataclass(frozen=True)
@@ -40,19 +40,44 @@ class Comparison:
         return "not significant"
 
 
+def log_binomial_pmf(n: int, k: int, p: float = 0.5) -> float:
+    """log P(X = k) for X ~ Binomial(n, p), via log-gamma.
+
+    Log space because the direct form overflows: `comb(2000, 1000)` is a
+    600-digit integer, and multiplying it by a float raises. The power analysis
+    searches up to a couple of thousand pairs, so this has to stay finite there.
+    """
+    if k < 0 or k > n:
+        return -inf
+    if p <= 0.0:
+        return 0.0 if k == 0 else -inf
+    if p >= 1.0:
+        return 0.0 if k == n else -inf
+    log_coefficient = lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1)
+    return log_coefficient + k * log(p) + (n - k) * log1p(-p)
+
+
+def binomial_cdf(n: int, k: int, p: float = 0.5) -> float:
+    """P(X <= k), summed in log space and clamped to [0, 1]."""
+    if k < 0:
+        return 0.0
+    if k >= n:
+        return 1.0
+    total = fsum(exp(log_binomial_pmf(n, i, p)) for i in range(k + 1))
+    return min(1.0, max(0.0, total))
+
+
 def exact_mcnemar(gained: int, lost: int) -> float:
     """Two-sided exact binomial p-value on the discordant pairs.
 
-    The exact form rather than the chi-square approximation, because the
-    discordant counts here are single digits and the approximation is not
+    The exact binomial rather than the chi-square approximation, because the
+    discordant counts here are often single digits and the approximation is not
     trustworthy that low.
     """
     n = gained + lost
     if n == 0:
         return 1.0
-    smaller = min(gained, lost)
-    tail = sum(comb(n, i) for i in range(smaller + 1)) / 2**n
-    return min(1.0, 2 * tail)
+    return min(1.0, 2 * binomial_cdf(n, min(gained, lost)))
 
 
 def compare(first: dict[str, bool], second: dict[str, bool]) -> Comparison:

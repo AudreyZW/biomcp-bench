@@ -142,7 +142,8 @@ class TestFindLigands:
         out = await call(
             build_server(bundle=bundle), "find_ligands", target="CHEMBL203", limit=5
         )
-        potencies = [float(x["potency"]) for x in out["ligands"]]
+        potencies = [x["potency"] for x in out["ligands"]]
+        assert all(isinstance(p, float) for p in potencies)
         assert potencies == sorted(potencies, reverse=True)
 
     async def test_accepts_a_uniprot_accession(self, bundle):
@@ -169,7 +170,7 @@ class TestCompareCompounds:
         )
         compound = out["compounds"][0]
         assert compound["name"] == "GEFITINIB"
-        assert compound["mol_weight"] == "446.91"
+        assert compound["mol_weight"] == 446.91  # coerced from ChEMBL's string
         assert compound["ro5_violations"] == 0
 
 

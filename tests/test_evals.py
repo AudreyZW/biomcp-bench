@@ -137,8 +137,11 @@ class TestVariantMatrix:
 
 
 class TestTaskSet:
-    def test_twenty_five_tasks(self):
-        assert len(TASKS) == 25
+    def test_large_enough_for_significance(self):
+        """`evals/power.py` sizes the mechanism comparisons at ~188 tasks from
+        the 25-task pilot. Falling below that would quietly make the live
+        results underpowered again."""
+        assert len(TASKS) >= 188
 
     def test_ids_are_unique(self):
         ids = [t["id"] for t in TASKS]
@@ -204,3 +207,33 @@ class TestOracleToolNames:
     def test_tool_counts_match_the_claim(self, tool_names):
         assert len(tool_names["task_shaped"]) == 6
         assert len(tool_names["granular"]) == 22
+
+
+class TestWalkIsBreadthFirst:
+    """Grading reads the shallowest match, not the first one a recursive
+    descent happens to reach. Raw upstream records nest several levels and
+    reuse key names at different depths, so depth-first traversal could grade
+    a coincidental deep match in preference to the intended shallow one."""
+
+    def test_shallow_match_wins_over_deep(self):
+        document = {"deep": {"nested": {"compound": "WRONG"}}, "compound": "RIGHT"}
+        assert find_value([document], ["compound"]) == "RIGHT"
+
+    def test_shallower_of_two_nested_matches_wins(self):
+        document = {
+            "a": {"b": {"c": {"target": "DEEP"}}},
+            "results": [{"target": "SHALLOWER"}],
+        }
+        assert find_value([document], ["target"]) == "SHALLOWER"
+
+    def test_still_finds_a_deep_only_match(self):
+        document = {"a": {"b": {"c": {"compound": "ONLY"}}}}
+        assert find_value([document], ["compound"]) == "ONLY"
+
+    def test_order_is_shallowest_first(self):
+        keys = [k for k, _ in walk({"top": {"mid": {"bottom": 1}}, "sibling": 2})]
+        assert keys.index("top") < keys.index("mid") < keys.index("bottom")
+
+    def test_handles_lists_of_dicts_at_depth(self):
+        document = {"outer": [{"inner": [{"compound": "X"}]}]}
+        assert find_value([document], ["compound"]) == "X"

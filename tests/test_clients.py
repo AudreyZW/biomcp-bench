@@ -24,6 +24,7 @@ def client(tmp_path):
         cache=ResponseCache(tmp_path, ttl=None),
         limiter=RateLimiter(min_interval=0.0),
         max_attempts=3,
+        backoff=0.0,
     )
 
 
@@ -188,6 +189,7 @@ class TestPartialFailureIsReported:
             cache=ResponseCache(tmp_path, ttl=None),
             limiter=RateLimiter(min_interval=0.0),
             max_attempts=1,
+            backoff=0.0,
         )
         respx.get(f"{DATA_URL}/rest/v1/core/entry/AAAA").mock(
             return_value=httpx.Response(200, json={"rcsb_id": "AAAA"})
@@ -205,6 +207,7 @@ class TestPartialFailureIsReported:
         client = PdbClient(
             cache=ResponseCache(tmp_path, ttl=None),
             limiter=RateLimiter(min_interval=0.0),
+            backoff=0.0,
         )
         respx.get(f"{DATA_URL}/rest/v1/core/entry/AAAA").mock(
             return_value=httpx.Response(200, json={"rcsb_id": "AAAA"})
@@ -246,3 +249,31 @@ class TestCanonicalAssayType:
         from biomcp.clients.chembl import canonical_assay_type
 
         assert canonical_assay_type("  ic50 ") == ("IC50", True)
+
+
+class TestBackoff:
+    async def test_backoff_grows_exponentially(self, tmp_path, monkeypatch):
+        """Delays double per attempt. Checked by recording them rather than
+        waiting, so the test stays fast."""
+        import asyncio as _asyncio
+
+        slept: list[float] = []
+
+        async def record(seconds):
+            slept.append(seconds)
+
+        monkeypatch.setattr(_asyncio, "sleep", record)
+        client = ApiClient(
+            "https://example.test",
+            namespace="t",
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+            max_attempts=4,
+            backoff=0.25,
+        )
+        with respx.mock:
+            respx.get("https://example.test/q").mock(return_value=httpx.Response(500))
+            with pytest.raises(ApiError):
+                await client.request_json("GET", "/q")
+        assert slept == [0.25, 0.5, 1.0]
+        await client.aclose()

@@ -14,6 +14,7 @@ from pathlib import Path
 from biomcp.shaping import (
     pick,
     shape_activity,
+    shape_chemical_component,
     shape_molecule,
     shape_pdb_entry,
     shape_target,
@@ -126,9 +127,98 @@ class TestShapeMolecule:
         }
         shaped = shape_molecule(raw)
         assert shaped["smiles"] == "COc1cc2ncnc"
-        assert shaped["mol_weight"] == "446.91"
+        # Coerced from the strings ChEMBL returns, so they sort correctly.
+        assert shaped["mol_weight"] == 446.91
         assert shaped["ro5_violations"] == 0
-        assert shaped["max_clinical_phase"] == "4.0"
+        assert shaped["max_clinical_phase"] == 4.0
 
     def test_tolerates_empty_record(self):
         assert shape_molecule({})["smiles"] is None
+
+
+class TestNumber:
+    """ChEMBL mixes numeric strings and real numbers in one record."""
+
+    def test_coerces_float_strings(self):
+        from biomcp.shaping import number
+
+        assert number("446.91") == 446.91
+
+    def test_coerces_integer_strings_to_int(self):
+        from biomcp.shaping import number
+
+        value = number("7")
+        assert value == 7 and isinstance(value, int)
+
+    def test_handles_negatives(self):
+        from biomcp.shaping import number
+
+        assert number("-1.5") == -1.5
+        assert number("-3") == -3
+
+    def test_leaves_non_numeric_strings_alone(self):
+        from biomcp.shaping import number
+
+        assert number("IC50") == "IC50"
+        assert number("") == ""
+
+    def test_passes_through_none_and_numbers(self):
+        from biomcp.shaping import number
+
+        assert number(None) is None
+        assert number(4.5) == 4.5
+        assert number(3) == 3
+
+    def test_leaves_booleans_alone(self):
+        from biomcp.shaping import number
+
+        assert number(True) is True
+
+    def test_makes_weights_sortable(self):
+        """The bug this prevents: "9.5" > "446.91" as text."""
+        from biomcp.shaping import number
+
+        weights = [number("446.91"), number("9.5"), number("1000.2")]
+        assert sorted(weights) == [9.5, 446.91, 1000.2]
+
+
+class TestShapeChemicalComponent:
+    """This path was never exercised against real data before: the only
+    structure in the fixtures, 6LU7, models its inhibitor as a polymer and so
+    has no non-polymer ligands to fetch. The real record turned out to hold
+    `rcsb_chem_comp_descriptor` as an object keyed by descriptor type, while
+    the shaper was iterating it as a list of typed records -- which raised."""
+
+    def test_reads_the_object_form_of_descriptors(self):
+        raw = load("pdb_chemcomp_sti.json")
+        shaped = shape_chemical_component(raw)
+        assert shaped["smiles"].startswith("Cc1ccc")
+
+    def test_extracts_identity_and_formula(self):
+        shaped = shape_chemical_component(load("pdb_chemcomp_sti.json"))
+        assert shaped["ligand_id"] == "STI"
+        assert shaped["formula"] == "C29 H31 N7 O"
+        assert shaped["mol_weight"] == 493.603
+
+    def test_carries_inchikey(self):
+        shaped = shape_chemical_component(load("pdb_chemcomp_sti.json"))
+        assert shaped["inchikey"].startswith("KTUFNOKKBVMGRW")
+
+    def test_tolerates_the_list_form_without_raising(self):
+        # Defensive: RCSB also publishes a list-shaped descriptor field, and a
+        # future change could swap them. Must degrade, not raise.
+        shaped = shape_chemical_component(
+            {"rcsb_id": "X", "rcsb_chem_comp_descriptor": [{"type": "SMILES"}]}
+        )
+        assert shaped["smiles"] is None
+
+    def test_falls_back_to_stereo_smiles(self):
+        shaped = shape_chemical_component(
+            {"rcsb_chem_comp_descriptor": {"SMILES_stereo": "C[C@H]O"}}
+        )
+        assert shaped["smiles"] == "C[C@H]O"
+
+    def test_tolerates_empty_record(self):
+        shaped = shape_chemical_component({})
+        assert shaped["ligand_id"] is None
+        assert shaped["smiles"] is None

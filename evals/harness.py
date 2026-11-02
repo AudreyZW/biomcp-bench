@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections import deque
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
@@ -39,14 +40,23 @@ def estimate_tokens(text: str) -> int:
 
 
 def walk(node: Any) -> Iterable[tuple[str, Any]]:
-    """Yield every (key, value) pair anywhere in a nested JSON structure."""
-    if isinstance(node, dict):
-        for key, value in node.items():
-            yield key, value
-            yield from walk(value)
-    elif isinstance(node, list):
-        for item in node:
-            yield from walk(item)
+    """Yield every (key, value) pair in a nested structure, shallowest first.
+
+    Breadth-first, deliberately. A depth-first walk returns whichever match it
+    reaches first, which is not the one a reader means: given
+    `{"deep": {"nested": {"compound": "x"}}, "compound": "y"}` it answers "x".
+    Raw upstream records nest several levels and reuse common key names at
+    different depths, so depth-first grading was liable to read a coincidental
+    match in preference to the intended one.
+    """
+    queue: deque[Any] = deque([node])
+    while queue:
+        current = queue.popleft()
+        if isinstance(current, dict):
+            yield from current.items()
+            queue.extend(current.values())
+        elif isinstance(current, list):
+            queue.extend(current)
 
 
 def find_value(responses: list[Any], aliases: list[str]) -> Any:

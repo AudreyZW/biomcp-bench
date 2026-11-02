@@ -30,12 +30,15 @@ class ApiClient:
         limiter: RateLimiter | None = None,
         timeout: float = 30.0,
         max_attempts: int = 3,
+        backoff: float = 0.5,
     ):
         self.base_url = base_url.rstrip("/")
         self.namespace = namespace
         self.cache = cache if cache is not None else ResponseCache()
         self.limiter = limiter or RateLimiter()
         self.max_attempts = max_attempts
+        # Injectable so tests exercise the retry path without really waiting.
+        self.backoff = backoff
         self._client = httpx.AsyncClient(
             timeout=timeout,
             headers={"User-Agent": "biomcp-bench/0.1 (+https://github.com/)"},
@@ -122,7 +125,7 @@ class ApiClient:
                     return body
 
             if attempt < self.max_attempts - 1:
-                await asyncio.sleep(0.5 * (2**attempt))
+                await asyncio.sleep(self.backoff * (2**attempt))
 
         raise ApiError(
             f"{method} {path} failed after {self.max_attempts} attempts: {last_error}"
