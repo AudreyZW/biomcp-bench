@@ -17,6 +17,7 @@ import json
 import sys
 from collections import defaultdict
 from datetime import UTC, datetime
+from itertools import pairwise
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -42,6 +43,15 @@ async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["replay", "live", "ollama"], default="replay")
     parser.add_argument("--model", default=None, help="model id for live/ollama mode")
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=1,
+        help=(
+            "run each variant this many times. Live models are sampled, so a "
+            "single run cannot tell a real effect from noise."
+        ),
+    )
     parser.add_argument("--variant", default="all", help="comma-separated, e.g. B,C")
     parser.add_argument("--tasks", default=str(ROOT / "tasks.yaml"))
     parser.add_argument("--out", default=str(ROOT / "results"))
@@ -65,43 +75,48 @@ async def main() -> int:
     )
 
     rows = []
-    for variant in chosen:
-        server = build_for(variant.family, variant.shaping, cache)
-        definitions = render_tool_definitions(await server.list_tools(), variant)
-        definition_tokens = estimate_tokens(json.dumps(definitions))
-        print(
-            f"\n{variant.label}\n  {len(definitions)} tools, "
-            f"~{definition_tokens} definition tokens per request",
-            flush=True,
-        )
-        for task in tasks:
-            if args.mode == "live":
-                from live import run_live
-
-                result = await run_live(server, task, variant, definitions)
-            elif args.mode == "ollama":
-                from ollama_driver import DEFAULT_MODEL, run_ollama
-
-                result = await run_ollama(
-                    server,
-                    task,
-                    variant,
-                    definitions,
-                    model=args.model or DEFAULT_MODEL,
-                )
-            else:
-                result = await run_replay(server, task, variant, definition_tokens)
-            rows.append(result.as_dict())
-            mark = {"derivable": "ok", "miss": "MISS", "upstream": "api", "ungraded": "-"}[
-                result.status
-            ]
-            problems = result.errors or result.tool_errors
-            note = f"  {problems[0][:60]}" if problems else ""
+    for run_index in range(args.repeats):
+        if args.repeats > 1:
+            print(f"\n===== run {run_index + 1} of {args.repeats} =====", flush=True)
+        for variant in chosen:
+            server = build_for(variant.family, variant.shaping, cache)
+            definitions = render_tool_definitions(await server.list_tools(), variant)
+            definition_tokens = estimate_tokens(json.dumps(definitions))
             print(
-                f"  {mark:<4} {task['id']:<28} calls={result.calls} "
-                f"tokens={result.total_tokens:>6}{note}",
+                f"\n{variant.label}\n  {len(definitions)} tools, "
+                f"~{definition_tokens} definition tokens per request",
                 flush=True,
             )
+            for task in tasks:
+                if args.mode == "live":
+                    from live import run_live
+
+                    result = await run_live(server, task, variant, definitions)
+                elif args.mode == "ollama":
+                    from ollama_driver import DEFAULT_MODEL, run_ollama
+
+                    result = await run_ollama(
+                        server,
+                        task,
+                        variant,
+                        definitions,
+                        model=args.model or DEFAULT_MODEL,
+                    )
+                else:
+                    result = await run_replay(server, task, variant, definition_tokens)
+                row = result.as_dict()
+                row["run"] = run_index
+                rows.append(row)
+                mark = {"derivable": "ok", "miss": "MISS", "upstream": "api", "ungraded": "-"}[
+                    result.status
+                ]
+                problems = result.errors or result.tool_errors
+                note = f"  {problems[0][:60]}" if problems else ""
+                print(
+                    f"  {mark:<4} {task['id']:<28} calls={result.calls} "
+                    f"tokens={result.total_tokens:>6}{note}",
+                    flush=True,
+                )
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -109,12 +124,12 @@ async def main() -> int:
     path = out_dir / f"{args.mode}-{stamp}.json"
     path.write_text(json.dumps({"mode": args.mode, "rows": rows}, indent=1))
 
-    summarise(rows, args.mode)
+    summarise(rows, args.mode, repeats=args.repeats)
     print(f"\nwrote {path}")
     return 0
 
 
-def summarise(rows: list[dict], mode: str) -> None:
+def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
     by_variant = defaultdict(list)
     for row in rows:
         by_variant[row["variant"]].append(row)
@@ -129,13 +144,18 @@ def summarise(rows: list[dict], mode: str) -> None:
     print("-" * 88)
     for name in sorted(by_variant):
         group = by_variant[name]
-        n = len(group)
+        n = len(group) // max(repeats, 1)
         variant = BY_NAME[name]
         defn = group[0]["definition_tokens"]
-        calls = sum(r["calls"] for r in group) / n
-        resp = sum(r["response_tokens"] for r in group) / n
+        divisor = len(group) or 1
+        calls = sum(r["calls"] for r in group) / divisor
+        resp = sum(r["response_tokens"] for r in group) / divisor
         hit = sum(1 for r in group if r["status"] == "derivable")
         miss = sum(1 for r in group if r["status"] == "miss")
+        per_run = defaultdict(int)
+        for r in group:
+            if r["status"] == "derivable":
+                per_run[r.get("run", 0)] += 1
         api = sum(1 for r in group if r["status"] == "upstream")
         if mode != "replay":
             api = sum(1 for r in group if r.get("tool_errors"))
@@ -143,8 +163,16 @@ def summarise(rows: list[dict], mode: str) -> None:
         print(
             f"{name:<9}{'22' if variant.family == 'granular' else '6':>6}{defn:>10}"
             f"{calls:>7.1f}{resp:>10.0f}{defn + resp:>9.0f}"
-            f"{f'{hit}/{scored}':>12}{api:>10}"
+            f"{f'{hit // max(repeats, 1)}/{n}':>12}{api // max(repeats, 1):>10}"
         )
+        if repeats > 1 and per_run:
+            counts = sorted(per_run.values())
+            spread = f"{min(counts)}-{max(counts)}"
+            mean = sum(counts) / len(counts)
+            print(
+                f"{'':<9}{'':>6}{'':>10}{'':>7}{'':>10}{'':>9}"
+                f"{f'mean {mean:.1f}, range {spread}':>22}"
+            )
     print("=" * 88)
     for variant in VARIANTS:
         if variant.name in by_variant:
@@ -153,7 +181,7 @@ def summarise(rows: list[dict], mode: str) -> None:
         from stats import paired_report
 
         names = [v.name for v in VARIANTS if v.name in by_variant]
-        pairs = list(zip(names, names[1:], strict=False))
+        pairs = list(pairwise(names))
         if len(names) > 2:
             pairs.append((names[0], names[-1]))
         if pairs:

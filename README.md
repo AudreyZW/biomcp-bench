@@ -130,23 +130,39 @@ tasks you need six unanimous flips before p drops under 0.05, and the best
 comparison here manages +6 net out of 16 disagreements. Note also that A → D
 *lost* five tasks it had previously solved — this is not a clean sweep.
 
-Two further confounds, both reported by the runner rather than buried:
+**The decisive check is re-running one variant.** Variant D, same 25 tasks,
+same model, five runs: **15, 17, 15, 13, 15**. A spread of four, which is twice
+the gap between adjacent variants — and variant C's 13 falls inside variant D's
+own range. On this evidence C and D are indistinguishable, and the step from
+each variant to the next is smaller than the noise floor.
 
-- **Upstream flakiness.** 6 of variant D's 10 misses involved a tool error.
-  The model picks its own arguments, so it misses the pinned cache and reaches
-  live ChEMBL, which returns intermittent 500s. Only 4 of its misses are clean.
-- **Sampling.** The model is sampled, so the numbers move between runs. There
-  is no repeated-trial averaging here.
+That is reproducible rather than anecdotal:
+
+```bash
+uv run python evals/run.py --mode ollama --variant C,D --repeats 3
+```
+
+`--repeats` reports the mean and range per variant, because one sampled run
+cannot separate an effect from variance and reporting a single run as though it
+could is the mistake this whole project is about.
+
+One further confound, reported by the runner rather than buried: **upstream
+flakiness.** 6 of variant D's 10 misses involved a tool error. The model picks
+its own arguments, so it misses the pinned cache and reaches live ChEMBL, which
+returns intermittent 500s. Only 4 of its misses are clean.
 
 So the honest summary is two-tier. **Replay is the reproducible result**:
 deterministic, offline, and a 36× context reduction with derivability going
 21/25 → 25/25. **The live run is indicative only** — consistent with the
 design mattering, and nowhere near evidence of it.
 
-What would settle it: more tasks, several sampled runs per variant, a cache
-covering the arguments a model actually chooses, and a stronger model. The
+What would settle it, given a within-variant spread of four: considerably more
+than 25 tasks, averaged over several runs per variant, with a cache covering
+the arguments a model actually chooses. A stronger model would help too — the
 `--mode live` driver runs against a frontier model with `ANTHROPIC_API_KEY`
-set, which would address the last of those.
+set. As it stands the live half of this benchmark is underpowered by roughly an
+order of magnitude, and saying so is more useful than a chart that implies
+otherwise.
 
 One thing the live run did show that replay structurally cannot: **C → D moved
 at all.** Replay follows a fixed path, so schema documentation is invisible to
