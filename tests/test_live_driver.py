@@ -166,7 +166,7 @@ class TestToolLoop:
         result = await run_live(FakeServer({}), TASK, VARIANT, [], client=client)
         assert result.calls == 2
 
-    async def test_tool_failure_is_reported_to_the_model_not_raised(self):
+    async def test_tool_failure_is_recoverable_not_run_invalidating(self):
         client = FakeClient(
             [
                 FakeResponse([FakeToolUse("find_target", {"query": "EGFR"})]),
@@ -175,7 +175,8 @@ class TestToolLoop:
         )
         server = FakeServer({}, failing={"find_target"})
         result = await run_live(server, TASK, VARIANT, [], client=client)
-        assert result.errors  # recorded
+        assert result.tool_errors  # recorded
+        assert not result.errors  # but the task is still scored
         assert result.derivable is True  # the run continued
         sent = client.messages.calls[1]["messages"][-1]["content"][0]["content"]
         assert "error" in sent
@@ -213,7 +214,11 @@ class TestTurnCeiling:
         client = FakeClient(script)
         result = await run_live(FakeServer({}), TASK, VARIANT, [], client=client)
         assert result.extracted is None
-        assert any("ceiling" in e for e in result.errors)
+        # A ceiling hit is a miss the model owns, not a run to exclude, so it
+        # goes in tool_errors and leaves `status` as "miss".
+        assert any("ceiling" in e for e in result.tool_errors)
+        assert not result.errors
+        assert result.status == "miss"
         assert result.calls == MAX_TURNS
 
 

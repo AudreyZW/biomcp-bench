@@ -94,20 +94,42 @@ mid-pass. Tasks whose path hits an upstream error are now counted separately
 and excluded from the ratio rather than charged to the tool design — a
 benchmark against live flaky endpoints measures their uptime, not your design.
 
-### What this does not measure
+### Measuring success rate
 
-Success rate. Replay follows a known-correct path, so it establishes what the
-answer *costs* and whether it *survives* the tools; it says nothing about
-whether a model finds the path. `evals/live.py` does that — it hands a model the
-variant's tool definitions and lets it solve the task — and needs
-`ANTHROPIC_API_KEY`:
+Replay follows a known-correct path, so it establishes what an answer *costs*
+and whether it *survives* the tools. It says nothing about whether a model
+finds the path. Two drivers do that.
+
+**A local model, no API key, no cost.** Install [Ollama](https://ollama.com),
+pull a tool-calling model, and run:
+
+```bash
+ollama pull qwen2.5:3b
+uv run python evals/run.py --mode ollama --variant all
+```
+
+**A frontier model**, with `ANTHROPIC_API_KEY` set:
 
 ```bash
 uv run python evals/run.py --mode live --variant C,D
 ```
 
-It is written and unrun. Until it runs, treat the C→D comparison as untested
-and the rest as a measurement of context cost rather than of accuracy.
+Read the `solved` column across variants, never against a published
+leaderboard: a different model moves every row. A small local model scores far
+below the 43–62% that MCP-Atlas and MCP-Universe report for frontier models,
+and that is expected.
+
+If anything a weaker model is the more sensitive instrument. A frontier model
+can often reason its way around a badly shaped tool, which masks the very
+differences this benchmark is trying to isolate.
+
+A live run is not fully reproducible, for two reasons worth stating. The model
+picks its own arguments, so it misses the pinned cache and reaches the live
+services — and ChEMBL is unreliable. The driver therefore counts every tool
+error, including the graceful `{"error": ...}` payloads a degrading tool
+returns, so an upstream outage is visible in the results instead of being
+charged to the tool design. And the model is sampled, so the numbers move
+between runs. Replay is the reproducible half; this half is indicative.
 
 ## The design rules
 

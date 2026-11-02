@@ -85,13 +85,20 @@ class TaskResult:
     derivable: bool | None = None
     extracted: Any = None
     errors: list[str] = field(default_factory=list)
+    tool_errors: list[str] = field(default_factory=list)
 
     @property
     def status(self) -> str:
         """`upstream` keeps a flaky API out of the design comparison.
 
-        A task whose oracle path hit a 500 tells us nothing about tool design,
-        so it is counted separately rather than scored as a miss.
+        In replay the oracle path is fixed, so a 500 means the measurement did
+        not happen and the task is excluded rather than scored as a miss.
+
+        In a live run the distinction moves: recovering from a failing tool is
+        part of what the model is being asked to do, so those go in
+        `tool_errors` and are reported without excluding the task. Only a
+        failure that invalidates the run -- an unreachable model -- lands in
+        `errors`.
         """
         if self.errors:
             return "upstream"
@@ -114,6 +121,7 @@ class TaskResult:
             "wall_seconds": round(self.wall_seconds, 2),
             "derivable": self.derivable,
             "status": self.status,
+            "tool_errors": self.tool_errors,
             "extracted": self.extracted,
             "errors": self.errors,
         }

@@ -40,7 +40,8 @@ def build_for(family: str, shaping: bool, cache):
 
 async def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["replay", "live"], default="replay")
+    parser.add_argument("--mode", choices=["replay", "live", "ollama"], default="replay")
+    parser.add_argument("--model", default=None, help="model id for live/ollama mode")
     parser.add_argument("--variant", default="all", help="comma-separated, e.g. B,C")
     parser.add_argument("--tasks", default=str(ROOT / "tasks.yaml"))
     parser.add_argument("--out", default=str(ROOT / "results"))
@@ -78,13 +79,24 @@ async def main() -> int:
                 from live import run_live
 
                 result = await run_live(server, task, variant, definitions)
+            elif args.mode == "ollama":
+                from ollama_driver import DEFAULT_MODEL, run_ollama
+
+                result = await run_ollama(
+                    server,
+                    task,
+                    variant,
+                    definitions,
+                    model=args.model or DEFAULT_MODEL,
+                )
             else:
                 result = await run_replay(server, task, variant, definition_tokens)
             rows.append(result.as_dict())
             mark = {"derivable": "ok", "miss": "MISS", "upstream": "api", "ungraded": "-"}[
                 result.status
             ]
-            note = f"  {result.errors[0][:60]}" if result.errors else ""
+            problems = result.errors or result.tool_errors
+            note = f"  {problems[0][:60]}" if problems else ""
             print(
                 f"  {mark:<4} {task['id']:<28} calls={result.calls} "
                 f"tokens={result.total_tokens:>6}{note}",
@@ -107,11 +119,12 @@ def summarise(rows: list[dict], mode: str) -> None:
     for row in rows:
         by_variant[row["variant"]].append(row)
 
-    label = "solved" if mode == "live" else "derivable"
+    label = "derivable" if mode == "replay" else "solved"
     print("\n" + "=" * 88)
     print(
         f"{'variant':<9}{'tools':>6}{'defn tok':>10}{'calls':>7}{'resp tok':>10}"
-        f"{'total':>9}{label:>12}{'api fail':>10}"
+        f"{'total':>9}{label:>12}"
+        f"{'excluded' if mode == 'replay' else 'tool errs':>10}"
     )
     print("-" * 88)
     for name in sorted(by_variant):
@@ -124,6 +137,8 @@ def summarise(rows: list[dict], mode: str) -> None:
         hit = sum(1 for r in group if r["status"] == "derivable")
         miss = sum(1 for r in group if r["status"] == "miss")
         api = sum(1 for r in group if r["status"] == "upstream")
+        if mode != "replay":
+            api = sum(1 for r in group if r.get("tool_errors"))
         scored = hit + miss
         print(
             f"{name:<9}{'22' if variant.family == 'granular' else '6':>6}{defn:>10}"
@@ -134,6 +149,12 @@ def summarise(rows: list[dict], mode: str) -> None:
     for variant in VARIANTS:
         if variant.name in by_variant:
             print(f"  {variant.name}: {variant.isolates}")
+    if mode != "replay":
+        print(
+            "\nNote: 'solved' is this model's success rate on these tasks. Compare the\n"
+            "columns against each other, not against published leaderboards -- a\n"
+            "different model moves every row."
+        )
     if mode == "replay":
         print(
             "\nNote: token counts are character-based estimates. "

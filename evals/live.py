@@ -89,7 +89,7 @@ async def run_live(
                 )
             except Exception as exc:
                 payload = json.dumps({"error": f"{type(exc).__name__}: {exc}"})
-                result.errors.append(f"{use.name}: {exc}")
+                result.tool_errors.append(f"{use.name}: {type(exc).__name__}")
             tool_results.append(
                 {"type": "tool_result", "tool_use_id": use.id, "content": payload}
             )
@@ -98,7 +98,7 @@ async def run_live(
     result.wall_seconds = time.monotonic() - started
     result.extracted = answer
     if answer is None and turns >= MAX_TURNS:
-        result.errors.append(f"hit the {MAX_TURNS}-turn ceiling without answering")
+        result.tool_errors.append(f"hit the {MAX_TURNS}-turn ceiling")
 
     spec = task.get("grade") or {}
     if answer is None:
