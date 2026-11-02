@@ -156,14 +156,21 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
         for r in group:
             if r["status"] == "derivable":
                 per_run[r.get("run", 0)] += 1
-        api = sum(1 for r in group if r["status"] == "upstream")
-        if mode != "replay":
-            api = sum(1 for r in group if r.get("tool_errors"))
-        scored = hit + miss
+        if mode == "replay":
+            # Upstream failures mean the measurement did not happen, so they
+            # leave the denominator as well as being counted separately.
+            problems = sum(1 for r in group if r["status"] == "upstream")
+            denominator = (hit + miss) // max(repeats, 1)
+        else:
+            # A live run scores every task: recovering from a failing tool is
+            # part of what the model is being asked to do.
+            problems = sum(1 for r in group if r.get("tool_errors"))
+            denominator = n
         print(
             f"{name:<9}{'22' if variant.family == 'granular' else '6':>6}{defn:>10}"
             f"{calls:>7.1f}{resp:>10.0f}{defn + resp:>9.0f}"
-            f"{f'{hit // max(repeats, 1)}/{n}':>12}{api // max(repeats, 1):>10}"
+            f"{f'{hit // max(repeats, 1)}/{denominator}':>12}"
+            f"{problems // max(repeats, 1):>10}"
         )
         if repeats > 1 and per_run:
             counts = sorted(per_run.values())

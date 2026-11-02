@@ -146,6 +146,11 @@ uv run python evals/run.py --mode ollama --variant C,D --repeats 3
 cannot separate an effect from variance and reporting a single run as though it
 could is the mistake this whole project is about.
 
+Run the same flag against replay and the range is `25-25`. That contrast is the
+clearest statement of what the two halves of this benchmark are worth: the
+reproducible half has no variance at all, and the live half has a spread wider
+than the effect it is trying to detect.
+
 One further confound, reported by the runner rather than buried: **upstream
 flakiness.** 6 of variant D's 10 misses involved a tool error. The model picks
 its own arguments, so it misses the pinned cache and reaches live ChEMBL, which
