@@ -99,6 +99,9 @@ class TaskResult:
     # Tool responses clipped before reaching the model. Only live drivers set
     # this; see TOOL_OUTPUT_CHAR_LIMIT for why it matters to the comparison.
     truncated: int = 0
+    # Graded on answer shape alone, for want of a ground-truth value. Live
+    # drivers set this; see `weak_grade`.
+    weak_grade: bool = False
 
     @property
     def status(self) -> str:
@@ -136,6 +139,7 @@ class TaskResult:
             "status": self.status,
             "tool_errors": self.tool_errors,
             "truncated": self.truncated,
+            "weak_grade": self.weak_grade,
             "extracted": self.extracted,
             "errors": self.errors,
         }
@@ -166,6 +170,85 @@ def grade(responses: list[Any], spec: dict[str, Any]) -> tuple[bool, Any]:
     if pattern and not re.fullmatch(pattern, text):
         return False, value
     return True, value
+
+
+NUMERIC = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?")
+NUMERIC_TOLERANCE = 0.01
+
+
+def _numbers(text: str) -> list[float]:
+    out = []
+    for match in NUMERIC.findall(text):
+        try:
+            out.append(float(match))
+        except ValueError:
+            pass
+    return out
+
+
+def grade_answer(answer: str | None, spec: dict[str, Any]) -> bool:
+    """Grade a model's free-text answer against the task's ground truth.
+
+    This is a different question from `harness.grade`, and the distinction is
+    the whole reason this function exists separately. Replay asks whether the
+    answer *survived* the tool round trip, so it reads a known key and a
+    `pattern` is a fair check that the field is still there and still the right
+    shape. Here the model is writing prose, and the same `pattern` would accept
+    any text of that shape -- `.+` accepts literally anything, and `[0-9]+`
+    accepts a sentence that happens to contain a digit. That measures answer
+    shape, not correctness, and it inflates every variant toward 100%.
+
+    So a live answer is graded against the value itself. `answer` is the
+    ground truth the generator resolved from the archives; `expect` is the
+    same thing for facts pinned by hand. A bare `pattern` is the last resort
+    for a task carrying neither, and it is reported as weak grading rather
+    than counted silently -- see `weak_grade`.
+    """
+    if not answer:
+        return False
+    truth = spec.get("answer")
+    if truth is None:
+        truth = spec.get("expect")
+    if truth is not None:
+        expected_numbers = _numbers(str(truth))
+        # A numeric truth is compared numerically: "180.16" and "180.2" are the
+        # same molecular weight, and string containment would reject the
+        # second. Only when the truth is a bare number, though -- "CHEMBL25"
+        # contains digits but is an identifier, where 25 != 25.0 is the point.
+        if len(expected_numbers) == 1 and not re.search(r"[A-Za-z]", str(truth)):
+            target = expected_numbers[0]
+            scale = max(abs(target), 1.0)
+            return any(
+                abs(candidate - target) <= NUMERIC_TOLERANCE * scale
+                for candidate in _numbers(answer)
+            )
+        # Otherwise containment at an identifier boundary, so "P00533." and
+        # "EGFR (P00533)" both count -- the model is not being tested on
+        # output formatting -- while "CHEMBL250" does not count as "CHEMBL25".
+        # Bare containment made every id a prefix match, which silently passed
+        # a wrong answer one digit longer.
+        needle = re.escape(str(truth).strip())
+        return bool(
+            re.search(
+                rf"(?<![A-Za-z0-9]){needle}(?![A-Za-z0-9])",
+                answer,
+                re.IGNORECASE,
+            )
+        )
+    pattern = spec.get("pattern")
+    if pattern:
+        return bool(re.search(pattern, answer, re.IGNORECASE))
+    return False
+
+
+def weak_grade(spec: dict[str, Any]) -> bool:
+    """True when a task can only be graded on answer shape, not on its value.
+
+    Reported per run so a success rate is never quoted without saying how much
+    of it rests on grading that cannot distinguish a right answer from a
+    well-formed wrong one.
+    """
+    return spec.get("answer") is None and spec.get("expect") is None
 
 
 async def run_replay(

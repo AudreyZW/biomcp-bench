@@ -8,7 +8,11 @@ design.
 
 from __future__ import annotations
 
-from ollama_driver import answer_from, grade_answer, to_openai_tools
+import httpx
+import pytest
+
+from harness import grade_answer
+from ollama_driver import answer_from, to_openai_tools
 
 
 class TestToolTranslation:
@@ -166,3 +170,63 @@ class _Variant:
     family = "task_shaped"
     shaping = True
     schema_docs = True
+
+
+class TestChatRetry:
+    """A flaky local model must not silently shrink a variant's denominator."""
+
+    async def test_retries_a_timeout_then_succeeds(self):
+        calls = {"n": 0}
+
+        class Flaky:
+            async def post(self, url, json):
+                calls["n"] += 1
+                if calls["n"] < 3:
+                    raise httpx.ReadTimeout("too slow")
+                return httpx.Response(
+                    200, json={"message": {"content": "ok"}}, request=httpx.Request("POST", url)
+                )
+
+        from ollama_driver import _chat
+
+        slept: list[float] = []
+
+        async def sleep(seconds):
+            slept.append(seconds)
+
+        body = await _chat(Flaky(), "http://h", "m", {}, sleep=sleep)
+        assert body["message"]["content"] == "ok"
+        assert calls["n"] == 3
+        # Backed off between attempts rather than hammering.
+        assert slept == [2.0, 4.0]
+
+    async def test_gives_up_after_the_attempt_ceiling(self):
+        class Dead:
+            async def post(self, url, json):
+                raise httpx.ConnectError("no model")
+
+        from ollama_driver import CHAT_ATTEMPTS, _chat
+
+        async def sleep(seconds):
+            return None
+
+        with pytest.raises(httpx.ConnectError):
+            await _chat(Dead(), "http://h", "m", {}, attempts=CHAT_ATTEMPTS, sleep=sleep)
+
+    async def test_an_http_error_is_not_retried(self):
+        # The model answered, with a 400. Retrying would hide a real bug.
+        calls = {"n": 0}
+
+        class Refuses:
+            async def post(self, url, json):
+                calls["n"] += 1
+                return httpx.Response(400, text="bad", request=httpx.Request("POST", url))
+
+        from ollama_driver import _chat
+
+        async def sleep(seconds):
+            return None
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await _chat(Refuses(), "http://h", "m", {}, sleep=sleep)
+        assert calls["n"] == 1

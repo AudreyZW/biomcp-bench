@@ -185,6 +185,12 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
                     f"  {name}: {clipped} tool response(s) clipped at the "
                     "output limit before reaching the model"
                 )
+            weak = sum(1 for r in group if r.get("weak_grade")) // max(repeats, 1)
+            if weak:
+                notes.append(
+                    f"  {name}: {weak}/{denominator} task(s) graded on answer shape "
+                    "only -- no ground-truth value, so a well-formed wrong answer passes"
+                )
         print(
             f"{name:<9}{'22' if variant.family == 'granular' else '6':>6}{defn:>10}"
             f"{calls:>7.1f}{resp:>10.0f}{defn + resp:>9.0f}"
@@ -222,9 +228,9 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
         print(
             "\nNote: 'solved' is this model's success rate on these tasks. Compare the\n"
             "columns against each other, not against published leaderboards -- a\n"
-            "different model moves every row. With 25 tasks and a sampled model, a\n"
-            "monotonic trend can still be well short of significant; read the table\n"
-            "above before drawing a conclusion from the column."
+            "different model moves every row. A monotonic trend can still be well\n"
+            "short of significant; read the paired tests above before drawing a\n"
+            "conclusion from the column."
         )
     if mode == "replay":
         print(

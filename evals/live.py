@@ -15,7 +15,7 @@ import os
 import time
 from typing import Any
 
-from harness import TaskResult
+from harness import TaskResult, grade_answer, weak_grade
 
 MODEL = "claude-sonnet-5-5"
 MAX_TURNS = 12
@@ -100,13 +100,8 @@ async def run_live(
     if answer is None and turns >= MAX_TURNS:
         result.tool_errors.append(f"hit the {MAX_TURNS}-turn ceiling")
 
-    spec = task.get("grade") or {}
-    if answer is None:
-        result.derivable = False
-    elif spec.get("expect") is not None:
-        result.derivable = answer.strip().upper() == str(spec["expect"]).strip().upper()
-    elif spec.get("pattern"):
-        import re
-
-        result.derivable = bool(re.search(spec["pattern"], answer))
+    # Shared with the Ollama driver on purpose: two drivers grading the same
+    # answer by different rules would make their columns incomparable.
+    result.derivable = grade_answer(answer, task.get("grade") or {})
+    result.weak_grade = weak_grade(task.get("grade") or {})
     return result

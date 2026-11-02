@@ -20,19 +20,23 @@ translation and the message plumbing differ from `live.py`.
 
 from __future__ import annotations
 
+import asyncio
 import json
-import re
 import time
 from typing import Any
 
 import httpx
 
-from harness import TaskResult, estimate_tokens
+from harness import TaskResult, estimate_tokens, grade_answer, weak_grade
 
 DEFAULT_MODEL = "qwen2.5:3b"
 DEFAULT_HOST = "http://127.0.0.1:11434"
 MAX_TURNS = 8
 REQUEST_TIMEOUT = 300.0
+# Transport failures talking to the local model are retried this many times;
+# see `_chat` for why an excluded task is worse than a slow one.
+CHAT_ATTEMPTS = 3
+RETRY_BACKOFF = 2.0
 
 # Tool output handed back to the model is clipped at this many characters.
 #
@@ -101,21 +105,6 @@ def answer_from(text: str) -> str | None:
     return text
 
 
-def grade_answer(answer: str | None, spec: dict[str, Any]) -> bool:
-    if not answer:
-        return False
-    expect = spec.get("expect")
-    if expect is not None:
-        # Accept the value appearing in a short answer, so "P00533." or
-        # "EGFR (P00533)" still counts; the model is not being tested on
-        # output formatting.
-        return str(expect).strip().upper() in answer.upper()
-    pattern = spec.get("pattern")
-    if pattern:
-        return bool(re.search(pattern, answer, re.IGNORECASE))
-    return False
-
-
 def _reports_error(payload: str) -> bool:
     """True when a tool returned a degraded `{"error": ...}` payload."""
     try:
@@ -125,10 +114,35 @@ def _reports_error(payload: str) -> bool:
     return isinstance(body, dict) and "error" in body
 
 
-async def _chat(client: httpx.AsyncClient, host: str, model: str, body: dict) -> dict:
-    response = await client.post(f"{host}/api/chat", json={**body, "model": model})
-    response.raise_for_status()
-    return response.json()
+async def _chat(
+    client: httpx.AsyncClient,
+    host: str,
+    model: str,
+    body: dict,
+    *,
+    attempts: int = CHAT_ATTEMPTS,
+    sleep: Any = asyncio.sleep,
+) -> dict:
+    """POST one turn, retrying a transport failure a bounded number of times.
+
+    A local model that times out is an infrastructure flake, not a result: the
+    task is excluded, which quietly shrinks one variant's denominator and makes
+    the variants no longer paired on the same tasks. Six tasks were lost that
+    way on a 317-task run. Retrying costs a few seconds and keeps the pairing
+    intact. An HTTP error from a model that did answer is not retried -- that
+    is a real failure and should be reported as one.
+    """
+    last: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            response = await client.post(f"{host}/api/chat", json={**body, "model": model})
+            response.raise_for_status()
+            return response.json()
+        except (httpx.TimeoutException, httpx.TransportError) as exc:
+            last = exc
+            if attempt + 1 < attempts:
+                await sleep(RETRY_BACKOFF * (2**attempt))
+    raise last if last else RuntimeError("no attempt was made")
 
 
 async def run_ollama(
@@ -225,6 +239,7 @@ async def run_ollama(
     result.wall_seconds = time.monotonic() - started
     result.extracted = answer
     result.derivable = grade_answer(answer, task.get("grade") or {})
+    result.weak_grade = weak_grade(task.get("grade") or {})
     if answer is None and turns >= MAX_TURNS:
         # A genuine failure to answer, so it scores as a miss, not an exclusion.
         result.tool_errors.append(f"hit the {MAX_TURNS}-turn ceiling")

@@ -16,6 +16,7 @@
     - uniprot
     - primaryAccession
     expect: P00533
+    answer: P00533
   oracle:
     task_shaped:
     - tool: find_target
@@ -35,6 +36,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL203
   oracle:
     task_shaped:
     - tool: find_target
@@ -56,6 +58,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4650319
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -76,6 +79,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL176582
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -99,6 +103,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 8A27
   oracle:
     task_shaped:
     - tool: get_structures
@@ -124,6 +129,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 394
   oracle:
     task_shaped:
     - tool: get_structures
@@ -142,6 +148,7 @@
     - uniprot
     - primaryAccession
     expect: P15056
+    answer: P15056
   oracle:
     task_shaped:
     - tool: find_target
@@ -161,6 +168,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5145
   oracle:
     task_shaped:
     - tool: find_target
@@ -182,6 +190,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL500659
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -202,6 +211,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5885861
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -225,6 +235,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 8VSO
   oracle:
     task_shaped:
     - tool: get_structures
@@ -250,6 +261,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 138
   oracle:
     task_shaped:
     - tool: get_structures
@@ -268,6 +280,7 @@
     - uniprot
     - primaryAccession
     expect: P00519
+    answer: P00519
   oracle:
     task_shaped:
     - tool: find_target
@@ -287,6 +300,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1862
   oracle:
     task_shaped:
     - tool: find_target
@@ -308,6 +322,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2347725
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -328,6 +343,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2347725
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -351,6 +367,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 5OAZ
   oracle:
     task_shaped:
     - tool: get_structures
@@ -376,6 +393,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 87
   oracle:
     task_shaped:
     - tool: get_structures
@@ -394,6 +412,7 @@
     - uniprot
     - primaryAccession
     expect: P24941
+    answer: P24941
   oracle:
     task_shaped:
     - tool: find_target
@@ -413,6 +432,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL301
   oracle:
     task_shaped:
     - tool: find_target
@@ -434,6 +454,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4446357
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -454,6 +475,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL388978
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -477,6 +499,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 6Q4G
   oracle:
     task_shaped:
     - tool: get_structures
@@ -502,6 +525,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 525
   oracle:
     task_shaped:
     - tool: get_structures
@@ -520,6 +544,7 @@
     - uniprot
     - primaryAccession
     expect: Q00534
+    answer: Q00534
   oracle:
     task_shaped:
     - tool: find_target
@@ -539,6 +564,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2508
   oracle:
     task_shaped:
     - tool: find_target
@@ -560,6 +586,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5762122
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -580,6 +607,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5762122
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -603,6 +631,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 9PE8
   oracle:
     task_shaped:
     - tool: get_structures
@@ -628,6 +657,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 22
   oracle:
     task_shaped:
     - tool: get_structures
@@ -646,6 +676,7 @@
     - uniprot
     - primaryAccession
     expect: Q9UM73
+    answer: Q9UM73
   oracle:
     task_shaped:
     - tool: find_target
@@ -665,6 +696,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4247
   oracle:
     task_shaped:
     - tool: find_target
@@ -686,6 +718,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3397300
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -706,6 +739,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3397300
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -729,6 +763,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 7MZY
   oracle:
     task_shaped:
     - tool: get_structures
@@ -754,6 +789,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 80
   oracle:
     task_shaped:
     - tool: get_structures
@@ -772,6 +808,7 @@
     - uniprot
     - primaryAccession
     expect: P08581
+    answer: P08581
   oracle:
     task_shaped:
     - tool: find_target
@@ -791,6 +828,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3717
   oracle:
     task_shaped:
     - tool: find_target
@@ -812,6 +850,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5184459
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -832,6 +871,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5184459
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -855,6 +895,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 9T6K
   oracle:
     task_shaped:
     - tool: get_structures
@@ -880,6 +921,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 130
   oracle:
     task_shaped:
     - tool: get_structures
@@ -898,6 +940,7 @@
     - uniprot
     - primaryAccession
     expect: P10721
+    answer: P10721
   oracle:
     task_shaped:
     - tool: find_target
@@ -917,6 +960,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1936
   oracle:
     task_shaped:
     - tool: find_target
@@ -938,6 +982,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4448433
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -958,6 +1003,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4448433
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -981,6 +1027,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 2VIF
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1006,6 +1053,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 67
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1024,6 +1072,7 @@
     - uniprot
     - primaryAccession
     expect: O60674
+    answer: O60674
   oracle:
     task_shaped:
     - tool: find_target
@@ -1043,6 +1092,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2971
   oracle:
     task_shaped:
     - tool: find_target
@@ -1064,6 +1114,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3665130
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1084,6 +1135,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3665128
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1107,6 +1159,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 8BXH
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1132,6 +1185,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 171
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1150,6 +1204,7 @@
     - uniprot
     - primaryAccession
     expect: P12931
+    answer: P12931
   oracle:
     task_shaped:
     - tool: find_target
@@ -1169,6 +1224,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL267
   oracle:
     task_shaped:
     - tool: find_target
@@ -1190,6 +1246,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5416410
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1210,6 +1267,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5416410
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1233,6 +1291,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 9OFX
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1258,6 +1317,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 78
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1276,6 +1336,7 @@
     - uniprot
     - primaryAccession
     expect: P31749
+    answer: P31749
   oracle:
     task_shaped:
     - tool: find_target
@@ -1295,6 +1356,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4282
   oracle:
     task_shaped:
     - tool: find_target
@@ -1316,6 +1378,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5407182
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1336,6 +1399,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5407182
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1359,6 +1423,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 1UNQ
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1384,6 +1449,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 56
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1402,6 +1468,7 @@
     - uniprot
     - primaryAccession
     expect: P28482
+    answer: P28482
   oracle:
     task_shaped:
     - tool: find_target
@@ -1421,6 +1488,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4040
   oracle:
     task_shaped:
     - tool: find_target
@@ -1442,6 +1510,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3608588
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1462,6 +1531,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3608588
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1485,6 +1555,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 8AOJ
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1510,6 +1581,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 160
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1528,6 +1600,7 @@
     - uniprot
     - primaryAccession
     expect: P42345
+    answer: P42345
   oracle:
     task_shaped:
     - tool: find_target
@@ -1547,6 +1620,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2842
   oracle:
     task_shaped:
     - tool: find_target
@@ -1568,6 +1642,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL413
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1588,6 +1663,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL413
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1611,6 +1687,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 4DRI
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1636,6 +1713,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 74
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1654,6 +1732,7 @@
     - uniprot
     - primaryAccession
     expect: O14965
+    answer: O14965
   oracle:
     task_shaped:
     - tool: find_target
@@ -1673,6 +1752,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4722
   oracle:
     task_shaped:
     - tool: find_target
@@ -1694,6 +1774,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4225923
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1714,6 +1795,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3685304
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1737,6 +1819,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 6VPM
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1762,6 +1845,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 202
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1780,6 +1864,7 @@
     - uniprot
     - primaryAccession
     expect: O14757
+    answer: O14757
   oracle:
     task_shaped:
     - tool: find_target
@@ -1799,6 +1884,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4630
   oracle:
     task_shaped:
     - tool: find_target
@@ -1820,6 +1906,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5747621
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1840,6 +1927,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5747621
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1863,6 +1951,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 2YEX
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1888,6 +1977,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 168
   oracle:
     task_shaped:
     - tool: get_structures
@@ -1906,6 +1996,7 @@
     - uniprot
     - primaryAccession
     expect: P53350
+    answer: P53350
   oracle:
     task_shaped:
     - tool: find_target
@@ -1925,6 +2016,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3024
   oracle:
     task_shaped:
     - tool: find_target
@@ -1946,6 +2038,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL513909
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1966,6 +2059,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL513909
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -1989,6 +2083,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 3P34
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2014,6 +2109,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 85
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2032,6 +2128,7 @@
     - uniprot
     - primaryAccession
     expect: P43405
+    answer: P43405
   oracle:
     task_shaped:
     - tool: find_target
@@ -2051,6 +2148,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2599
   oracle:
     task_shaped:
     - tool: find_target
@@ -2072,6 +2170,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3415598
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2092,6 +2191,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3415598
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2115,6 +2215,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 4YJR
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2140,6 +2241,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 93
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2158,6 +2260,7 @@
     - uniprot
     - primaryAccession
     expect: Q06187
+    answer: Q06187
   oracle:
     task_shaped:
     - tool: find_target
@@ -2177,6 +2280,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5251
   oracle:
     task_shaped:
     - tool: find_target
@@ -2198,6 +2302,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4762397
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2218,6 +2323,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4762397
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2241,6 +2347,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 5P9J
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2266,6 +2373,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 170
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2284,6 +2392,7 @@
     - uniprot
     - primaryAccession
     expect: P36888
+    answer: P36888
   oracle:
     task_shaped:
     - tool: find_target
@@ -2303,6 +2412,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1974
   oracle:
     task_shaped:
     - tool: find_target
@@ -2324,6 +2434,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5176837
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2344,6 +2455,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4744130
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2367,6 +2479,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 6JQR
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2392,6 +2505,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 11
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2410,6 +2524,7 @@
     - uniprot
     - primaryAccession
     expect: P07949
+    answer: P07949
   oracle:
     task_shaped:
     - tool: find_target
@@ -2429,6 +2544,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2041
   oracle:
     task_shaped:
     - tool: find_target
@@ -2450,6 +2566,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5962713
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2470,6 +2587,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5962713
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2493,6 +2611,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 7DUA
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2518,6 +2637,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 34
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2536,6 +2656,7 @@
     - uniprot
     - primaryAccession
     expect: P06239
+    answer: P06239
   oracle:
     task_shaped:
     - tool: find_target
@@ -2555,6 +2676,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL258
   oracle:
     task_shaped:
     - tool: find_target
@@ -2576,6 +2698,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL215969
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2596,6 +2719,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL215969
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2619,6 +2743,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 1LKK
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2644,6 +2769,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 57
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2662,6 +2788,7 @@
     - uniprot
     - primaryAccession
     expect: P35968
+    answer: P35968
   oracle:
     task_shaped:
     - tool: find_target
@@ -2681,6 +2808,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL279
   oracle:
     task_shaped:
     - tool: find_target
@@ -2702,6 +2830,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3925855
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2722,6 +2851,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1289926
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2745,6 +2875,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 2XIR
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2770,6 +2901,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 54
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2788,6 +2920,7 @@
     - uniprot
     - primaryAccession
     expect: P04626
+    answer: P04626
   oracle:
     task_shaped:
     - tool: find_target
@@ -2807,6 +2940,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1824
   oracle:
     task_shaped:
     - tool: find_target
@@ -2828,6 +2962,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL6132997
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2848,6 +2983,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL6132997
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2871,6 +3007,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 8VB5
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2896,6 +3033,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 65
   oracle:
     task_shaped:
     - tool: get_structures
@@ -2914,6 +3052,7 @@
     - uniprot
     - primaryAccession
     expect: P09874
+    answer: P09874
   oracle:
     task_shaped:
     - tool: find_target
@@ -2933,6 +3072,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3105
   oracle:
     task_shaped:
     - tool: find_target
@@ -2954,6 +3094,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5401127
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2974,6 +3115,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5401127
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -2997,6 +3139,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 6NRH
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3022,6 +3165,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 106
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3040,6 +3184,7 @@
     - uniprot
     - primaryAccession
     expect: P00734
+    answer: P00734
   oracle:
     task_shaped:
     - tool: find_target
@@ -3059,6 +3204,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL204
   oracle:
     task_shaped:
     - tool: find_target
@@ -3080,6 +3226,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL121212
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3100,6 +3247,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4108739
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3123,6 +3271,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 5AFY
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3148,6 +3297,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 490
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3166,6 +3316,7 @@
     - uniprot
     - primaryAccession
     expect: Q9BQ89
+    answer: Q9BQ89
   oracle:
     task_shaped:
     - tool: find_target
@@ -3184,6 +3335,7 @@
     - uniprot
     - primaryAccession
     expect: P56817
+    answer: P56817
   oracle:
     task_shaped:
     - tool: find_target
@@ -3203,6 +3355,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4822
   oracle:
     task_shaped:
     - tool: find_target
@@ -3224,6 +3377,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3982593
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3244,6 +3398,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3982593
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3267,6 +3422,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 7MYI
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3292,6 +3448,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 431
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3310,6 +3467,7 @@
     - uniprot
     - primaryAccession
     expect: P12821
+    answer: P12821
   oracle:
     task_shaped:
     - tool: find_target
@@ -3329,6 +3487,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1808
   oracle:
     task_shaped:
     - tool: find_target
@@ -3350,6 +3509,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL289556
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3370,6 +3530,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL443353
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3393,6 +3554,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 6H5W
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3418,6 +3580,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 97
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3436,6 +3599,7 @@
     - uniprot
     - primaryAccession
     expect: P35354
+    answer: P35354
   oracle:
     task_shaped:
     - tool: find_target
@@ -3455,6 +3619,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL230
   oracle:
     task_shaped:
     - tool: find_target
@@ -3476,6 +3641,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL525247
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3496,6 +3662,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL501208
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3519,6 +3686,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 5F19
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3544,6 +3712,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 7
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3562,6 +3731,7 @@
     - uniprot
     - primaryAccession
     expect: Q13547
+    answer: Q13547
   oracle:
     task_shaped:
     - tool: find_target
@@ -3581,6 +3751,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL325
   oracle:
     task_shaped:
     - tool: find_target
@@ -3602,6 +3773,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2105763
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3622,6 +3794,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4861467
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3645,6 +3818,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 7SME
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3670,6 +3844,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 20
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3688,6 +3863,7 @@
     - uniprot
     - primaryAccession
     expect: P00918
+    answer: P00918
   oracle:
     task_shaped:
     - tool: find_target
@@ -3707,6 +3883,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL205
   oracle:
     task_shaped:
     - tool: find_target
@@ -3728,6 +3905,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3608887
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3748,6 +3926,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4105008
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3771,6 +3950,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 3K34
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3796,6 +3976,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 1264
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3814,6 +3995,7 @@
     - uniprot
     - primaryAccession
     expect: O76074
+    answer: O76074
   oracle:
     task_shaped:
     - tool: find_target
@@ -3833,6 +4015,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1827
   oracle:
     task_shaped:
     - tool: find_target
@@ -3854,6 +4037,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1916488
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3874,6 +4058,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1916488
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -3897,6 +4082,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 1TBF
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3922,6 +4108,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 52
   oracle:
     task_shaped:
     - tool: get_structures
@@ -3940,6 +4127,7 @@
     - uniprot
     - primaryAccession
     expect: P04035
+    answer: P04035
   oracle:
     task_shaped:
     - tool: find_target
@@ -3959,6 +4147,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL402
   oracle:
     task_shaped:
     - tool: find_target
@@ -3980,6 +4169,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL162642
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4000,6 +4190,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL162642
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4023,6 +4214,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 2R4F
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4048,6 +4240,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 24
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4066,6 +4259,7 @@
     - uniprot
     - primaryAccession
     expect: P00374
+    answer: P00374
   oracle:
     task_shaped:
     - tool: find_target
@@ -4085,6 +4279,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL202
   oracle:
     task_shaped:
     - tool: find_target
@@ -4106,6 +4301,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL34259
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4126,6 +4322,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL251427
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4149,6 +4346,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 1KMV
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4174,6 +4372,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 89
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4192,6 +4391,7 @@
     - uniprot
     - primaryAccession
     expect: P03372
+    answer: P03372
   oracle:
     task_shaped:
     - tool: find_target
@@ -4211,6 +4411,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL206
   oracle:
     task_shaped:
     - tool: find_target
@@ -4232,6 +4433,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL135
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4252,6 +4454,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4591338
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4275,6 +4478,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 7BAA
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4300,6 +4504,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 493
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4318,6 +4523,7 @@
     - uniprot
     - primaryAccession
     expect: Q8NHP1
+    answer: Q8NHP1
   oracle:
     task_shaped:
     - tool: find_target
@@ -4336,6 +4542,7 @@
     - uniprot
     - primaryAccession
     expect: P04150
+    answer: P04150
   oracle:
     task_shaped:
     - tool: find_target
@@ -4355,6 +4562,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL2034
   oracle:
     task_shaped:
     - tool: find_target
@@ -4376,6 +4584,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4104286
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4396,6 +4605,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4104286
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4419,6 +4629,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 4UDD
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4444,6 +4655,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 57
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4462,6 +4674,7 @@
     - uniprot
     - primaryAccession
     expect: P37231
+    answer: P37231
   oracle:
     task_shaped:
     - tool: find_target
@@ -4481,6 +4694,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL235
   oracle:
     task_shaped:
     - tool: find_target
@@ -4502,6 +4716,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1813011
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4522,6 +4737,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL3678131
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4545,6 +4761,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 9F7W
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4570,6 +4787,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 380
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4588,6 +4806,7 @@
     - uniprot
     - primaryAccession
     expect: P07550
+    answer: P07550
   oracle:
     task_shaped:
     - tool: find_target
@@ -4607,6 +4826,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL210
   oracle:
     task_shaped:
     - tool: find_target
@@ -4628,6 +4848,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4847536
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4648,6 +4869,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1160723
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4671,6 +4893,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 1GQ4
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4696,6 +4919,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 149
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4714,6 +4938,7 @@
     - uniprot
     - primaryAccession
     expect: P14416
+    answer: P14416
   oracle:
     task_shaped:
     - tool: find_target
@@ -4733,6 +4958,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL217
   oracle:
     task_shaped:
     - tool: find_target
@@ -4754,6 +4980,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL157138
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4774,6 +5001,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL5900385
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4797,6 +5025,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 5AER
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4822,6 +5051,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 12
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4840,6 +5070,7 @@
     - uniprot
     - primaryAccession
     expect: P21554
+    answer: P21554
   oracle:
     task_shaped:
     - tool: find_target
@@ -4859,6 +5090,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL218
   oracle:
     task_shaped:
     - tool: find_target
@@ -4880,6 +5112,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL4062749
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4900,6 +5133,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL220360
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -4923,6 +5157,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 23IV
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4948,6 +5183,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 35
   oracle:
     task_shaped:
     - tool: get_structures
@@ -4966,6 +5202,7 @@
     - uniprot
     - primaryAccession
     expect: P51681
+    answer: P51681
   oracle:
     task_shaped:
     - tool: find_target
@@ -4985,6 +5222,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL274
   oracle:
     task_shaped:
     - tool: find_target
@@ -5006,6 +5244,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL311795
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5026,6 +5265,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL311795
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5049,6 +5289,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 5YD3
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5074,6 +5315,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 26
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5092,6 +5334,7 @@
     - uniprot
     - primaryAccession
     expect: P14780
+    answer: P14780
   oracle:
     task_shaped:
     - tool: find_target
@@ -5111,6 +5354,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL321
   oracle:
     task_shaped:
     - tool: find_target
@@ -5132,6 +5376,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL323090
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5152,6 +5397,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL323090
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5175,6 +5421,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 6ESM
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5200,6 +5447,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 29
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5218,6 +5466,7 @@
     - uniprot
     - primaryAccession
     expect: P43235
+    answer: P43235
   oracle:
     task_shaped:
     - tool: find_target
@@ -5237,6 +5486,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL268
   oracle:
     task_shaped:
     - tool: find_target
@@ -5258,6 +5508,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL386506
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5278,6 +5529,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL386506
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5301,6 +5553,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 4X6H
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5326,6 +5579,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 71
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5344,6 +5598,7 @@
     - uniprot
     - primaryAccession
     expect: P11387
+    answer: P11387
   oracle:
     task_shaped:
     - tool: find_target
@@ -5363,6 +5618,7 @@
     - chembl_target
     - target_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1781
   oracle:
     task_shaped:
     - tool: find_target
@@ -5384,6 +5640,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL1813808
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5404,6 +5661,7 @@
     - compound
     - molecule_chembl_id
     pattern: CHEMBL[0-9]+
+    answer: CHEMBL338843
   oracle:
     task_shaped:
     - tool: find_ligands
@@ -5427,6 +5685,7 @@
     - rcsb_id
     - identifier
     pattern: '[0-9A-Za-z]{4}'
+    answer: 1K4T
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5452,6 +5711,7 @@
     - total_matches
     - total_count
     pattern: '[0-9]+'
+    answer: 15
   oracle:
     task_shaped:
     - tool: get_structures
@@ -5470,6 +5730,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 446.91
   oracle:
     task_shaped:
     - &id087
@@ -5489,6 +5750,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id087
@@ -5501,6 +5763,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: COc1cc2ncnc(Nc3ccc(F)c(Cl)c3)c2cc1OCCCN1CCOCC1
   oracle:
     task_shaped:
     - *id087
@@ -5513,6 +5776,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 493.62
   oracle:
     task_shaped:
     - &id089
@@ -5532,6 +5796,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id089
@@ -5544,6 +5809,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1
   oracle:
     task_shaped:
     - *id089
@@ -5556,6 +5822,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 180.16
   oracle:
     task_shaped:
     - &id091
@@ -5575,6 +5842,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id091
@@ -5587,6 +5855,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CC(=O)Oc1ccccc1C(=O)O
   oracle:
     task_shaped:
     - *id091
@@ -5599,6 +5868,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 558.65
   oracle:
     task_shaped:
     - &id093
@@ -5619,6 +5889,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 2
   oracle:
     task_shaped:
     - *id093
@@ -5631,6 +5902,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CC(C)c1c(C(=O)Nc2ccccc2)c(-c2ccccc2)c(-c2ccc(F)cc2)n1CC[C@@H](O)C[C@@H](O)CC(=O)O
   oracle:
     task_shaped:
     - *id093
@@ -5643,6 +5915,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 474.59
   oracle:
     task_shaped:
     - &id095
@@ -5663,6 +5936,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id095
@@ -5675,6 +5949,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12
   oracle:
     task_shaped:
     - *id095
@@ -5687,6 +5962,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 151.16
   oracle:
     task_shaped:
     - &id097
@@ -5707,6 +5983,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id097
@@ -5719,6 +5996,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CC(=O)Nc1ccc(O)cc1
   oracle:
     task_shaped:
     - *id097
@@ -5731,6 +6009,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 206.28
   oracle:
     task_shaped:
     - &id099
@@ -5750,6 +6029,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id099
@@ -5762,6 +6042,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CC(C)Cc1ccc(C(C)C(=O)O)cc1
   oracle:
     task_shaped:
     - *id099
@@ -5774,6 +6055,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 129.17
   oracle:
     task_shaped:
     - &id101
@@ -5794,6 +6076,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id101
@@ -5806,6 +6089,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CN(C)C(=N)NC(=N)N
   oracle:
     task_shaped:
     - *id101
@@ -5818,6 +6102,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 308.33
   oracle:
     task_shaped:
     - &id103
@@ -5837,6 +6122,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id103
@@ -5849,6 +6135,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CC(=O)CC(c1ccccc1)c1c(O)c2ccccc2oc1=O
   oracle:
     task_shaped:
     - *id103
@@ -5861,6 +6148,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 194.19
   oracle:
     task_shaped:
     - &id105
@@ -5880,6 +6168,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id105
@@ -5892,6 +6181,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: Cn1c(=O)c2c(ncn2C)n(C)c1=O
   oracle:
     task_shaped:
     - *id105
@@ -5904,6 +6194,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 285.34
   oracle:
     task_shaped:
     - &id107
@@ -5923,6 +6214,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id107
@@ -5935,6 +6227,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CN1CC[C@]23c4c5ccc(O)c4O[C@H]2[C@@H](O)C=C[C@H]3[C@H]1C5
   oracle:
     task_shaped:
     - *id107
@@ -5947,6 +6240,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 284.75
   oracle:
     task_shaped:
     - &id109
@@ -5966,6 +6260,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id109
@@ -5978,6 +6273,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CN1C(=O)CN=C(c2ccccc2)c2cc(Cl)ccc21
   oracle:
     task_shaped:
     - *id109
@@ -5990,6 +6286,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 309.33
   oracle:
     task_shaped:
     - &id111
@@ -6009,6 +6306,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id111
@@ -6021,6 +6319,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1
   oracle:
     task_shaped:
     - *id111
@@ -6033,6 +6332,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 345.42
   oracle:
     task_shaped:
     - &id113
@@ -6053,6 +6353,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id113
@@ -6065,6 +6366,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: COc1ccc2[nH]c([S+]([O-])Cc3ncc(C)c(OC)c3C)nc2c1
   oracle:
     task_shaped:
     - *id113
@@ -6077,6 +6379,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 418.57
   oracle:
     task_shaped:
     - &id115
@@ -6097,6 +6400,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id115
@@ -6109,6 +6413,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CCC(C)(C)C(=O)O[C@H]1C[C@@H](C)C=C2C=C[C@H](C)[C@H](CC[C@@H]3C[C@@H](O)CC(=O)O3)[C@H]21
   oracle:
     task_shaped:
     - *id115
@@ -6121,6 +6426,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 853.92
   oracle:
     task_shaped:
     - &id117
@@ -6141,6 +6447,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 2
   oracle:
     task_shaped:
     - *id117
@@ -6153,6 +6460,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CC(=O)O[C@H]1C(=O)[C@@]2(C)[C@H]([C@H](OC(=O)c3ccccc3)[C@]3(O)C[C@H](OC(=O)[C@H](O)[C@@H](NC(=O)c4ccccc4)c4ccccc4)C(C)=C1C3(C)C)[C@]1(OC(C)=O)CO[C@@H]1C[C@@H]2O
   oracle:
     task_shaped:
     - *id117
@@ -6165,6 +6473,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 398.48
   oracle:
     task_shaped:
     - &id119
@@ -6184,6 +6493,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 0
   oracle:
     task_shaped:
     - *id119
@@ -6196,6 +6506,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CCN(CC)CCNC(=O)c1c(C)[nH]c(/C=C2\C(=O)Nc3ccc(F)cc32)c1C
   oracle:
     task_shaped:
     - *id119
@@ -6208,6 +6519,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 464.83
   oracle:
     task_shaped:
     - &id121
@@ -6228,6 +6540,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 1
   oracle:
     task_shaped:
     - *id121
@@ -6240,6 +6553,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CNC(=O)c1cc(Oc2ccc(NC(=O)Nc3ccc(Cl)c(C(F)(F)F)c3)cc2)ccn1
   oracle:
     task_shaped:
     - *id121
@@ -6252,6 +6566,7 @@
     - mol_weight
     - full_mwt
     pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 581.07
   oracle:
     task_shaped:
     - &id123
@@ -6271,6 +6586,7 @@
     - ro5_violations
     - num_ro5_violations
     pattern: '[0-9]+'
+    answer: 2
   oracle:
     task_shaped:
     - *id123
@@ -6283,6 +6599,7 @@
     - smiles
     - canonical_smiles
     pattern: .+
+    answer: CS(=O)(=O)CCNCc1ccc(-c2ccc3ncnc(Nc4ccc(OCc5cccc(F)c5)c(Cl)c4)c3c2)o1
   oracle:
     task_shaped:
     - *id123

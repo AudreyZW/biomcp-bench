@@ -318,14 +318,30 @@ async def run_path(server, path: list[dict]) -> tuple[list, str | None]:
 
 
 async def validate(task: dict, servers: dict) -> str | None:
-    """Return None if the task is answerable in every configuration."""
+    """Return None if the task is answerable in every configuration.
+
+    On success the resolved value is recorded as `grade.answer`, which is what
+    a live run grades a model's prose against. Without it a live run can only
+    check the *shape* of an answer -- and `pattern` shapes like `.+` accept
+    anything -- so every variant drifts toward 100% and the comparison dies.
+
+    The recorded value is ground truth as of generation, read out of the
+    archives rather than an author's memory. For the fields that drift (today's
+    most potent compound is not next quarter's) it pins the task to the
+    committed fixtures, which is what makes a replay reproducible.
+    """
+    resolved = None
     for family, server in servers.items():
         responses, error = await run_path(server, task["oracle"][family])
         if error:
             return f"{family}: {error}"
-        ok, _ = grade(responses, task["grade"])
+        ok, value = grade(responses, task["grade"])
         if not ok:
             return f"{family}: answer not derivable"
+        if family == "task_shaped":
+            resolved = value
+    if resolved is not None and not isinstance(resolved, (dict, list)):
+        task["grade"]["answer"] = resolved
     return None
 
 
