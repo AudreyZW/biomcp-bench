@@ -33,8 +33,8 @@ Five configurations, one knob changed at a time:
 | --- | --- | --- | --- | --- | --- |
 | **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 78,071 | **79,992** |
 | **B** task-shaped, raw | 6 | 671 | 1.0 | 2,437 | 3,108 |
-| **C** task-shaped, shaped | 6 | 671 | 1.0 | 89 | **760** |
-| **D** C + documented schemas | 6 | 905 | 1.0 | 89 | 994 |
+| **C** task-shaped, shaped | 6 | 671 | 1.0 | 90 | **761** |
+| **D** C + documented schemas | 6 | 905 | 1.0 | 90 | 995 |
 | **E** 1:1 wrappers, documented | 22 | 2,973 | 1.4 | 78,071 | 81,044 |
 
 **105× less context** between the 1:1 wrapper and the task-shaped server with
@@ -45,7 +45,7 @@ the comparisons:
   definition overhead 2.9× and response volume 32×. Definitions are paid on
   every request before any data comes back.
 - **B → C (response shaping).** Projection alone cuts response volume a further
-  **27×**, from 2,437 tokens to 89. The single largest effect, and the cheapest
+  **27×**, from 2,437 tokens to 90. The single largest effect, and the cheapest
   to implement.
 - **C → D (schema documentation).** Costs 234 tokens and changes nothing in
   replay, which is expected: documentation affects which tool a *model* picks,
@@ -202,7 +202,7 @@ ChEMBL, which returns intermittent 500s. Only 4 of its misses are clean.
 **Tool output is clipped at 20,000 characters before reaching the model**, and
 that is not a neutral limit. `qwen2.5:3b` has a 32k context, and replay
 measures 96 of the 317 tasks as producing more than that from the 1:1 wrapper
-— its median response is 6,241 tokens against 91 for the shaped server, and
+— its median response is 6,241 tokens against 90 for the shaped server, and
 its largest is **504,011**, about sixteen times the whole context and more
 than most frontier models will hold either. A single response can exceed
 everything the model can hold. Clipping spares the

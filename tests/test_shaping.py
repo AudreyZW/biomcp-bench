@@ -89,15 +89,29 @@ class TestShapePdbEntry:
         shaped = shape_pdb_entry(raw)
         assert len(json.dumps(shaped)) * 50 < len(json.dumps(raw))
 
-    def test_missing_ligand_ids_become_empty_list(self):
+    def test_missing_entity_ids_become_empty_list(self):
         # 6LU7's inhibitor is modelled as a polymer entity, so this entry
         # genuinely has no non-polymer ids. The field must still be a list.
-        assert shape_pdb_entry(load("pdb_entry_6lu7.json"))["ligand_ids"] == []
+        #
+        # This entry being the suite's only one is what hid the entity-id
+        # bug: see tests/test_ligand_resolution.py.
+        assert shape_pdb_entry(load("pdb_entry_6lu7.json"))["ligand_entity_ids"] == []
+
+    def test_entity_ids_are_not_named_as_ligand_ids(self):
+        """They are positional entity ids, not chemical component codes.
+
+        The old name said otherwise, and code in this repo believed it.
+        """
+        shaped = shape_pdb_entry(
+            {"rcsb_entry_container_identifiers": {"non_polymer_entity_ids": ["2", "3"]}}
+        )
+        assert shaped["ligand_entity_ids"] == ["2", "3"]
+        assert "ligand_ids" not in shaped
 
     def test_tolerates_empty_record(self):
         shaped = shape_pdb_entry({})
         assert shaped["pdb_id"] is None
-        assert shaped["ligand_ids"] == []
+        assert shaped["ligand_entity_ids"] == []
 
 
 class TestShapeTarget:

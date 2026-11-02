@@ -119,11 +119,21 @@ def shape_molecule(raw: dict[str, Any]) -> dict[str, Any]:
 def shape_pdb_entry(raw: dict[str, Any]) -> dict[str, Any]:
     """A PDB entry reduced to what decides whether it is worth simulating.
 
-    Resolution and method are the quality gate; `ligand_ids` is how you tell a
-    liganded complex from an apo structure, which is usually the whole question.
+    Resolution and method are the quality gate; `ligand_count` is how you tell
+    a liganded complex from an apo structure, which is usually the whole
+    question.
+
+    The entity ids are named `ligand_entity_ids`, not `ligand_ids`, because
+    they are not ligand identifiers: they are positional -- "2", "3", "4" --
+    while a ligand is named by its chemical component code, "EDO" or "STI".
+    Resolving one to the other takes a further request per entity, which
+    `get_structure` makes and this projection does not. The honest name is
+    worth the extra word: under the old one, code in this repo passed these
+    values to the chemical component endpoint and silently found nothing, and
+    a model reading the field would make the same mistake.
     """
     identifiers = raw.get("rcsb_entry_container_identifiers") or {}
-    ligand_ids = identifiers.get("non_polymer_entity_ids") or []
+    ligand_entity_ids = identifiers.get("non_polymer_entity_ids") or []
     released = pick(raw, "rcsb_accession_info.initial_release_date")
     return {
         "pdb_id": raw.get("rcsb_id"),
@@ -132,7 +142,7 @@ def shape_pdb_entry(raw: dict[str, Any]) -> dict[str, Any]:
         "resolution_a": _first(pick(raw, "rcsb_entry_info.resolution_combined")),
         "released": released[:10] if isinstance(released, str) else None,
         "ligand_count": pick(raw, "rcsb_entry_info.nonpolymer_entity_count"),
-        "ligand_ids": ligand_ids,
+        "ligand_entity_ids": ligand_entity_ids,
         "polymer_entity_ids": identifiers.get("polymer_entity_ids") or [],
     }
 
