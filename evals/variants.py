@@ -7,6 +7,18 @@ decision:
     B -> C   response shaping  raw upstream records vs projected ones
     C -> D   schema docs       bare parameter names vs documented ones
 
+    E -> D   tool count again, with documentation held equal
+
+E exists because the chain above adds documentation only on top of the
+6-tool server, so `A -> D` conflates consolidating the tools with documenting
+them. E is the baseline's strongest form -- the same 22 wrappers, with the
+attribute paths and field names a careful author would supply -- and `E -> D`
+is the tool-count comparison with that advantage given to both sides.
+
+Building E was only honest once `granular.py` had parameter documentation to
+keep: before that, turning docs on for the 22-tool server moved its rendered
+definitions by 1% and added no parameter descriptions at all.
+
 Schema verbosity is applied here rather than in the server, because it is a
 property of how tool definitions are rendered to a model, not of the server's
 behaviour. Stripping is deliberately crude: drop every `description`, keep the
@@ -52,6 +64,13 @@ VARIANTS: tuple[Variant, ...] = (
         shaping=True,
         schema_docs=True,
         isolates="vs C: schema documentation",
+    ),
+    Variant(
+        "E",
+        "granular",
+        shaping=False,
+        schema_docs=True,
+        isolates="vs D: tool count, documentation held equal",
     ),
 )
 

@@ -18,9 +18,10 @@ including knowing that potency ranks on `pchembl_value` rather than `value`.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from mcp.server import MCPServer
+from pydantic import Field
 
 from .cache import ResponseCache
 from .clients import ClientBundle, client_lifespan
@@ -28,6 +29,25 @@ from .clients.chembl import BASE_URL as CHEMBL_BASE
 from .clients.pdb import DATA_URL, UNIPROT_ATTRIBUTE
 
 INSTRUCTIONS = "Thin wrappers over the UniProt, RCSB PDB, and ChEMBL REST APIs."
+
+# Parameter documentation for the search tools, which is where a 1:1 wrapper
+# puts the heaviest burden on the caller: an RCSB attribute path is not
+# guessable, so an undocumented wrapper asks the model to know it.
+#
+# Variant A strips every description, so none of this affects A. It exists so
+# that variant E -- the same 22 tools *with* their documentation -- is a real
+# manipulation. Without it, turning docs on for this server moved the rendered
+# definitions by 1% and added no parameter descriptions at all, which would
+# have made E a fake arm and left `A -> D` conflating two changes at once.
+ATTRIBUTE_DOC = (
+    "RCSB attribute path, e.g. 'rcsb_entry_info.resolution_combined', "
+    "'exptl.method', 'rcsb_entry_info.nonpolymer_entity_count', or "
+    f"'{UNIPROT_ATTRIBUTE}' for a UniProt accession."
+)
+OPERATOR_DOC = (
+    "One of 'exact_match', 'equals', 'greater', 'less', "
+    "'greater_or_equal', 'less_or_equal', 'contains_phrase', 'in'."
+)
 
 
 def build_granular_server(
@@ -74,7 +94,28 @@ def build_granular_server(
     # ---- UniProt -----------------------------------------------------------
 
     @mcp.tool(description="Search UniProtKB. Returns the raw search response.")
-    async def uniprot_search(query: str, size: int = 5) -> Any:
+    async def uniprot_search(
+        query: Annotated[
+            str,
+            Field(
+                description=(
+                    "UniProt query syntax, e.g. "
+                    '"EGFR AND organism_id:9606 AND reviewed:true". A bare gene name '
+                    "matches unreviewed and non-human entries too."
+                )
+            ),
+        ],
+        size: Annotated[
+            int,
+            Field(
+                description=(
+                    "Results to return. UniProt applies `size` before relevance "
+                    "ordering is stable, so size=1 can return a different entry "
+                    "than the first of size=5."
+                )
+            ),
+        ] = 5,
+    ) -> Any:
         return await uniprot.request_json(
             "GET",
             "/uniprotkb/search",
@@ -82,7 +123,11 @@ def build_granular_server(
         )
 
     @mcp.tool(description="Get a UniProtKB entry by accession.")
-    async def uniprot_get_entry(accession: str) -> Any:
+    async def uniprot_get_entry(
+        accession: Annotated[
+            str, Field(description="UniProt accession, e.g. 'P00533'. Not a gene name.")
+        ],
+    ) -> Any:
         return await uniprot.request_json(
             "GET", f"/uniprotkb/{accession}", params={"format": "json"}
         )
@@ -90,44 +135,67 @@ def build_granular_server(
     # ---- RCSB search -------------------------------------------------------
 
     @mcp.tool(description="RCSB full-text search. Returns identifiers and scores.")
-    async def pdb_search_fulltext(value: str, rows: int = 10) -> Any:
+    async def pdb_search_fulltext(
+        value: Annotated[str, Field(description="Free text, e.g. 'SARS-CoV-2 main protease'")],
+        rows: Annotated[int, Field(description="Page size; the API caps this at 100")] = 10,
+    ) -> Any:
         return await _search(
             {"type": "terminal", "service": "full_text", "parameters": {"value": value}}, rows
         )
 
     @mcp.tool(description="RCSB search on an arbitrary attribute, operator and value.")
     async def pdb_search_by_attribute(
-        attribute: str, operator: str, value: Any, rows: int = 10
+        attribute: Annotated[str, Field(description=ATTRIBUTE_DOC)],
+        operator: Annotated[str, Field(description=OPERATOR_DOC)],
+        value: Annotated[Any, Field(description="Value to compare against")],
+        rows: Annotated[int, Field(description="Page size; the API caps this at 100")] = 10,
     ) -> Any:
         return await _search(_terminal(attribute, operator, value), rows)
 
     @mcp.tool(description="RCSB search for entries referencing a UniProt accession.")
-    async def pdb_search_by_uniprot(accession: str, rows: int = 10) -> Any:
+    async def pdb_search_by_uniprot(
+        accession: Annotated[str, Field(description="UniProt accession, e.g. 'P00533'")],
+        rows: Annotated[int, Field(description="Page size; the API caps this at 100")] = 10,
+    ) -> Any:
         return await _search(_terminal(UNIPROT_ATTRIBUTE, "exact_match", accession), rows)
 
     @mcp.tool(
         description="RCSB search for entries whose non-polymer entity count exceeds a value."
     )
-    async def pdb_search_by_ligand_count(minimum: int = 0, rows: int = 10) -> Any:
+    async def pdb_search_by_ligand_count(
+        minimum: Annotated[
+            int,
+            Field(
+                description=(
+                    "Exclusive lower bound on non-polymer entities. Pass 0 for "
+                    "'has at least one bound small molecule'."
+                )
+            ),
+        ] = 0,
+        rows: Annotated[int, Field(description="Page size; the API caps this at 100")] = 10,
+    ) -> Any:
         return await _search(
             _terminal("rcsb_entry_info.nonpolymer_entity_count", "greater", minimum), rows
         )
 
     @mcp.tool(description="RCSB search sorted ascending by resolution.")
     async def pdb_search_sorted_by_resolution(
-        attribute: str, operator: str, value: Any, rows: int = 10
+        attribute: Annotated[str, Field(description=ATTRIBUTE_DOC)],
+        operator: Annotated[str, Field(description=OPERATOR_DOC)],
+        value: Annotated[Any, Field(description="Value to compare against")],
+        rows: Annotated[int, Field(description="Page size; the API caps this at 100")] = 10,
     ) -> Any:
         return await _search(_terminal(attribute, operator, value), rows, sort=True)
 
     @mcp.tool(description="RCSB search combining two attribute conditions with AND.")
     async def pdb_search_combined(
-        attribute_a: str,
-        operator_a: str,
-        value_a: Any,
-        attribute_b: str,
-        operator_b: str,
-        value_b: Any,
-        rows: int = 10,
+        attribute_a: Annotated[str, Field(description=ATTRIBUTE_DOC)],
+        operator_a: Annotated[str, Field(description=OPERATOR_DOC)],
+        value_a: Annotated[Any, Field(description="Value for the first condition")],
+        attribute_b: Annotated[str, Field(description=ATTRIBUTE_DOC)],
+        operator_b: Annotated[str, Field(description=OPERATOR_DOC)],
+        value_b: Annotated[Any, Field(description="Value for the second condition")],
+        rows: Annotated[int, Field(description="Page size; the API caps this at 100")] = 10,
     ) -> Any:
         return await _search(
             {
@@ -164,7 +232,17 @@ def build_granular_server(
         return await _entry_slice(pdb_id, "rcsb_entry_container_identifiers")
 
     @mcp.tool(description="Get a chemical component (ligand) record by its id.")
-    async def pdb_get_chemcomp(comp_id: str) -> Any:
+    async def pdb_get_chemcomp(
+        comp_id: Annotated[
+            str,
+            Field(
+                description=(
+                    "Chemical component id, the short ligand code from an entry's "
+                    "nonpolymer entities, e.g. 'STI'. Not a PDB entry id."
+                )
+            ),
+        ],
+    ) -> Any:
         return await pdb.request_json(
             "GET", f"{DATA_URL}/rest/v1/core/chemcomp/{comp_id.upper()}"
         )
@@ -172,21 +250,53 @@ def build_granular_server(
     # ---- ChEMBL ------------------------------------------------------------
 
     @mcp.tool(description="ChEMBL target search by free text.")
-    async def chembl_search_target(q: str, limit: int = 5) -> Any:
+    async def chembl_search_target(
+        q: Annotated[
+            str,
+            Field(
+                description=(
+                    "Free text, e.g. 'epidermal growth factor receptor'. This "
+                    "endpoint returns HTTP 500 intermittently; filtering by "
+                    "accession is the reliable path."
+                )
+            ),
+        ],
+        limit: Annotated[int, Field(description="Page size")] = 5,
+    ) -> Any:
         return await _chembl_get("target/search", {"q": q, "limit": limit})
 
     @mcp.tool(description="Get a ChEMBL target by its id.")
-    async def chembl_get_target(target_chembl_id: str) -> Any:
+    async def chembl_get_target(
+        target_chembl_id: Annotated[
+            str, Field(description="ChEMBL target id, e.g. 'CHEMBL203'")
+        ],
+    ) -> Any:
         return await _chembl_get(f"target/{target_chembl_id}", {})
 
     @mcp.tool(description="Filter ChEMBL targets by a UniProt accession.")
-    async def chembl_filter_targets_by_accession(accession: str, limit: int = 5) -> Any:
+    async def chembl_filter_targets_by_accession(
+        accession: Annotated[str, Field(description="UniProt accession, e.g. 'P00533'")],
+        limit: Annotated[int, Field(description="Page size")] = 5,
+    ) -> Any:
         return await _chembl_get(
             "target", {"target_components__accession": accession, "limit": limit}
         )
 
     @mcp.tool(description="List ChEMBL activities for a target id.")
-    async def chembl_list_activities(target_chembl_id: str, limit: int = 20) -> Any:
+    async def chembl_list_activities(
+        target_chembl_id: Annotated[
+            str, Field(description="ChEMBL target id, e.g. 'CHEMBL203'")
+        ],
+        limit: Annotated[
+            int,
+            Field(
+                description=(
+                    "Page size. A well-studied target has tens of thousands of "
+                    "activities, so this returns an arbitrary page unless ordered."
+                )
+            ),
+        ] = 20,
+    ) -> Any:
         return await _chembl_get(
             "activity", {"target_chembl_id": target_chembl_id, "limit": limit}
         )
@@ -195,10 +305,30 @@ def build_granular_server(
         description="List ChEMBL activities filtered by standard_type and ordered by a field."
     )
     async def chembl_filter_activities(
-        target_chembl_id: str,
-        standard_type: str | None = None,
-        order_by: str | None = None,
-        limit: int = 20,
+        target_chembl_id: Annotated[
+            str, Field(description="ChEMBL target id, e.g. 'CHEMBL203'")
+        ],
+        standard_type: Annotated[
+            str | None,
+            Field(
+                description=(
+                    "Assay type, matched case-sensitively as ChEMBL spells it: "
+                    "'IC50', 'Ki', 'Kd', 'EC50'. 'ic50' matches nothing."
+                )
+            ),
+        ] = None,
+        order_by: Annotated[
+            str | None,
+            Field(
+                description=(
+                    "Ordering field, '-' for descending. Potency ranks on "
+                    "'-pchembl_value', the only unit-comparable field; "
+                    "'standard_value' mixes nM and uM across assays and a "
+                    "smaller number is more potent."
+                )
+            ),
+        ] = None,
+        limit: Annotated[int, Field(description="Page size")] = 20,
     ) -> Any:
         params: dict[str, Any] = {"target_chembl_id": target_chembl_id, "limit": limit}
         if standard_type:
@@ -208,18 +338,40 @@ def build_granular_server(
         return await _chembl_get("activity", params)
 
     @mcp.tool(description="Get a ChEMBL molecule by its id.")
-    async def chembl_get_molecule(molecule_chembl_id: str) -> Any:
+    async def chembl_get_molecule(
+        molecule_chembl_id: Annotated[
+            str, Field(description="ChEMBL molecule id, e.g. 'CHEMBL25'")
+        ],
+    ) -> Any:
         return await _chembl_get(f"molecule/{molecule_chembl_id}", {})
 
     @mcp.tool(description="Get several ChEMBL molecules by a comma-separated id list.")
-    async def chembl_filter_molecules(molecule_chembl_ids: str, limit: int = 25) -> Any:
+    async def chembl_filter_molecules(
+        molecule_chembl_ids: Annotated[
+            str,
+            Field(description="Comma-separated ChEMBL molecule ids, no spaces"),
+        ],
+        limit: Annotated[int, Field(description="Page size")] = 25,
+    ) -> Any:
         return await _chembl_get(
             "molecule", {"molecule_chembl_id__in": molecule_chembl_ids, "limit": limit}
         )
 
     @mcp.tool(description="ChEMBL Tanimoto similarity search from a SMILES string.")
     async def chembl_similarity_search(
-        smiles: str, threshold: int = 70, limit: int = 25
+        smiles: Annotated[
+            str,
+            Field(
+                description=(
+                    "SMILES string of the query structure. It goes in the URL "
+                    "path, so characters like '#' must survive encoding."
+                )
+            ),
+        ],
+        threshold: Annotated[
+            int, Field(description="Tanimoto similarity percentage, 40-100")
+        ] = 70,
+        limit: Annotated[int, Field(description="Page size")] = 25,
     ) -> Any:
         return await _chembl_get(f"similarity/{smiles}/{threshold}", {"limit": limit})
 

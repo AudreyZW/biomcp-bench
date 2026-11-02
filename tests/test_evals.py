@@ -14,7 +14,7 @@ import pytest
 import yaml
 
 from harness import estimate_tokens, find_value, grade, resolve_args, walk
-from variants import BY_NAME, VARIANTS, strip_descriptions
+from variants import BY_NAME, VARIANTS, render_tool_definitions, strip_descriptions
 
 TASKS = yaml.safe_load((Path(__file__).parent.parent / "evals" / "tasks.yaml").read_text())
 
@@ -117,16 +117,60 @@ class TestStripDescriptions:
 
 
 class TestVariantMatrix:
-    def test_four_variants(self):
-        assert len(VARIANTS) == 4
+    def test_five_variants(self):
+        assert len(VARIANTS) == 5
 
-    def test_each_comparison_changes_exactly_one_knob(self):
+    def test_the_chain_changes_exactly_one_knob_at_a_time(self):
         """A->B->C->D must each differ in one dimension, or the isolation claim
         in the README is false."""
-        knobs = [(v.family, v.shaping, v.schema_docs) for v in VARIANTS]
+        chain = [BY_NAME[n] for n in ("A", "B", "C", "D")]
+        knobs = [(v.family, v.shaping, v.schema_docs) for v in chain]
         for earlier, later in pairwise(knobs):
             differences = sum(1 for a, b in zip(earlier, later, strict=True) if a != b)
             assert differences == 1, f"{earlier} -> {later} changes {differences} knobs"
+
+    def test_e_differs_from_d_only_in_tool_count(self):
+        """The whole reason E exists: `A -> D` changes two things at once, so
+        the clean tool-count comparison needs documentation on both sides."""
+        e, d = BY_NAME["E"], BY_NAME["D"]
+        assert e.family != d.family
+        assert e.schema_docs == d.schema_docs is True
+
+    def test_e_differs_from_a_only_in_documentation(self):
+        e, a = BY_NAME["E"], BY_NAME["A"]
+        assert e.family == a.family
+        assert e.shaping == a.shaping
+        assert e.schema_docs != a.schema_docs
+
+    def test_the_documented_baseline_has_documentation_to_keep(self):
+        """E is only a real arm if the 22 tools carry parameter descriptions.
+
+        Before `granular.py` documented its parameters, rendering it with docs
+        on changed the definitions by 1% and added no parameter descriptions,
+        which would have made E a fake manipulation.
+        """
+        import asyncio
+        import json
+
+        from biomcp.granular import build_granular_server
+        from harness import estimate_tokens
+
+        async def rendered(docs: bool) -> tuple[int, int]:
+            tools = await build_granular_server().list_tools()
+            defs = render_tool_definitions(tools, BY_NAME["E" if docs else "A"])
+            described = sum(
+                1
+                for t in defs
+                for prop in (t["input_schema"].get("properties") or {}).values()
+                if isinstance(prop, dict) and prop.get("description")
+            )
+            return estimate_tokens(json.dumps(defs)), described
+
+        bare_tokens, bare_described = asyncio.run(rendered(False))
+        documented_tokens, documented_described = asyncio.run(rendered(True))
+        assert bare_described == 0
+        assert documented_described >= 30
+        assert documented_tokens > bare_tokens * 1.3
 
     def test_a_is_the_granular_baseline(self):
         assert BY_NAME["A"].family == "granular"
