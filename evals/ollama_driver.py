@@ -34,6 +34,22 @@ DEFAULT_HOST = "http://127.0.0.1:11434"
 MAX_TURNS = 8
 REQUEST_TIMEOUT = 300.0
 
+# Tool output handed back to the model is clipped at this many characters.
+#
+# This is a necessary limit with a real cost to the comparison, so it is named
+# rather than buried. `qwen2.5:3b` has a 32k context, and replay measures 96 of
+# the 317 tasks as producing more than that from the 1:1 wrapper -- its median
+# response is 6,241 tokens against 91 for the shaped server. A single response
+# can therefore exceed everything the model can hold.
+#
+# Clipping cuts both ways and neither way is neutral. It spares the raw
+# variants the context overflow they would really suffer, which flatters them;
+# and it can remove the answer from the part the model sees, which penalises
+# them for a limit of this harness rather than of their design. Either way the
+# live column for variant A reports "A with its output clipped", not A as a
+# server. The honest measurement of that cost is the replay table.
+TOOL_OUTPUT_CHAR_LIMIT = 20_000
+
 SYSTEM = """\
 You answer biochemistry lookup questions using the supplied tools.
 
@@ -123,7 +139,13 @@ async def run_ollama(
     *,
     model: str = DEFAULT_MODEL,
     host: str = DEFAULT_HOST,
+    client: Any | None = None,
 ) -> TaskResult:
+    """Drive one task with a local model.
+
+    `client` is injectable so the agent loop can be tested without a model
+    running: the loop is where the bugs live, not the HTTP call.
+    """
     result = TaskResult(task_id=task["id"], variant=variant.name)
     tools = to_openai_tools(tool_definitions)
     result.definition_tokens = estimate_tokens(json.dumps(tools))
@@ -136,7 +158,8 @@ async def run_ollama(
     answer: str | None = None
     turns = 0
 
-    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+    transport = client or httpx.AsyncClient(timeout=REQUEST_TIMEOUT)
+    async with transport as client:
         for _ in range(MAX_TURNS):
             turns += 1
             try:
@@ -189,7 +212,15 @@ async def run_ollama(
                     # upstream outage reads as the tool design failing.
                     if _reports_error(payload):
                         result.tool_errors.append(f"{name}: upstream unavailable")
-                messages.append({"role": "tool", "content": payload[:20000], "name": name})
+                if len(payload) > TOOL_OUTPUT_CHAR_LIMIT:
+                    result.truncated += 1
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": payload[:TOOL_OUTPUT_CHAR_LIMIT],
+                        "name": name,
+                    }
+                )
 
     result.wall_seconds = time.monotonic() - started
     result.extracted = answer

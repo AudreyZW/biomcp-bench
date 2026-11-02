@@ -145,6 +145,7 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
     by_variant = defaultdict(list)
     for row in rows:
         by_variant[row["variant"]].append(row)
+    notes: list[str] = []
 
     label = "derivable" if mode == "replay" else "solved"
     print("\n" + "=" * 88)
@@ -178,6 +179,12 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
             # part of what the model is being asked to do.
             problems = sum(1 for r in group if r.get("tool_errors"))
             denominator = n
+            clipped = sum(r.get("truncated", 0) for r in group)
+            if clipped:
+                notes.append(
+                    f"  {name}: {clipped} tool response(s) clipped at the "
+                    "output limit before reaching the model"
+                )
         print(
             f"{name:<9}{'22' if variant.family == 'granular' else '6':>6}{defn:>10}"
             f"{calls:>7.1f}{resp:>10.0f}{defn + resp:>9.0f}"
@@ -196,6 +203,11 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
     for variant in VARIANTS:
         if variant.name in by_variant:
             print(f"  {variant.name}: {variant.isolates}")
+    if notes:
+        print()
+        for note in notes:
+            print(note)
+
     if mode != "replay":
         from stats import paired_report
 

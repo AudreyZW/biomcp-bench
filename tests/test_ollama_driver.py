@@ -104,3 +104,65 @@ class TestUpstreamErrorDetection:
         from ollama_driver import _reports_error
 
         assert not _reports_error("[1, 2, 3]")
+
+
+class TestOutputLimit:
+    """Tool output is clipped before reaching the model, which is a real cost
+    to the comparison rather than a detail: replay measures 96 of 317 tasks as
+    producing more from the 1:1 wrapper than a 32k-context model can hold. The
+    count is reported so a reader can see how often it bit."""
+
+    def test_limit_is_named_and_plausible(self):
+        from ollama_driver import TOOL_OUTPUT_CHAR_LIMIT
+
+        # Comfortably inside a 32k-token context, and large enough that the
+        # shaped variants are never clipped (their median is ~360 characters).
+        assert 5_000 <= TOOL_OUTPUT_CHAR_LIMIT <= 40_000
+
+    async def test_counts_a_clipped_response(self):
+        from helpers_ollama import FakeOllama, FakeToolServer
+        from ollama_driver import TOOL_OUTPUT_CHAR_LIMIT, run_ollama
+
+        oversized = {"pad": "x" * (TOOL_OUTPUT_CHAR_LIMIT * 2)}
+        server = FakeToolServer({"big": oversized})
+        client = FakeOllama(
+            [
+                {"message": {"tool_calls": [{"function": {"name": "big", "arguments": {}}}]}},
+                {"message": {"content": "ANSWER: P00533"}},
+            ]
+        )
+        result = await run_ollama(
+            server,
+            {"id": "t", "question": "q", "grade": {"expect": "P00533"}},
+            _Variant(),
+            [],
+            client=client,
+        )
+        assert result.truncated == 1
+
+    async def test_small_response_is_not_counted(self):
+        from helpers_ollama import FakeOllama, FakeToolServer
+        from ollama_driver import run_ollama
+
+        server = FakeToolServer({"small": {"uniprot": "P00533"}})
+        client = FakeOllama(
+            [
+                {"message": {"tool_calls": [{"function": {"name": "small", "arguments": {}}}]}},
+                {"message": {"content": "ANSWER: P00533"}},
+            ]
+        )
+        result = await run_ollama(
+            server,
+            {"id": "t", "question": "q", "grade": {"expect": "P00533"}},
+            _Variant(),
+            [],
+            client=client,
+        )
+        assert result.truncated == 0
+
+
+class _Variant:
+    name = "D"
+    family = "task_shaped"
+    shaping = True
+    schema_docs = True

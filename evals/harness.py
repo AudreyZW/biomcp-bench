@@ -96,6 +96,9 @@ class TaskResult:
     extracted: Any = None
     errors: list[str] = field(default_factory=list)
     tool_errors: list[str] = field(default_factory=list)
+    # Tool responses clipped before reaching the model. Only live drivers set
+    # this; see TOOL_OUTPUT_CHAR_LIMIT for why it matters to the comparison.
+    truncated: int = 0
 
     @property
     def status(self) -> str:
@@ -132,6 +135,7 @@ class TaskResult:
             "derivable": self.derivable,
             "status": self.status,
             "tool_errors": self.tool_errors,
+            "truncated": self.truncated,
             "extracted": self.extracted,
             "errors": self.errors,
         }

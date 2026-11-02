@@ -170,10 +170,22 @@ clearest statement of what the two halves of this benchmark are worth: the
 reproducible half has no variance at all, and the live half has a spread wider
 than the effect it is trying to detect.
 
-One further confound, reported by the runner rather than buried: **upstream
-flakiness.** 6 of variant D's 10 misses involved a tool error. The model picks
-its own arguments, so it misses the pinned cache and reaches live ChEMBL, which
-returns intermittent 500s. Only 4 of its misses are clean.
+Two further confounds, both reported by the runner rather than buried.
+
+**Upstream flakiness.** 6 of variant D's 10 misses involved a tool error. The
+model picks its own arguments, so it misses the pinned cache and reaches live
+ChEMBL, which returns intermittent 500s. Only 4 of its misses are clean.
+
+**Tool output is clipped at 20,000 characters before reaching the model**, and
+that is not a neutral limit. `qwen2.5:3b` has a 32k context, and replay
+measures 96 of the 317 tasks as producing more than that from the 1:1 wrapper
+— its median response is 6,241 tokens against 91 for the shaped server. A
+single response can exceed everything the model can hold. Clipping spares the
+raw variants the overflow they would really suffer, which flatters them, and it
+can also remove the answer from what the model sees, which penalises them for a
+limit of the harness. So the live column for variant A reports *A with its
+output clipped*, not A as a server. The honest measurement of that cost is the
+replay table, and the runner prints how many responses were clipped.
 
 So the honest summary is two-tier. **Replay is the reproducible result**:
 deterministic, offline, and a 36× context reduction with derivability going
