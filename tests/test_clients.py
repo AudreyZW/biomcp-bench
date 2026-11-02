@@ -364,3 +364,78 @@ class TestNegativeCaching:
         cache = ResponseCache(tmp_path, ttl=-1)
         cache.put("ns", {"k": 1}, None)
         assert cache.lookup("ns", {"k": 1}) is MISSING
+
+
+class TestSmilesEncoding:
+    """A SMILES goes in the URL path, where several of its characters are
+    structural. `#` is a triple bond and also begins a URL fragment, so
+    `N#Cc1ccccc1` reached ChEMBL as `N` and returned zero matches rather than
+    an error -- a silent wrong answer for any nitrile, which is a common motif
+    in medicinal chemistry.
+    """
+
+    @respx.mock
+    async def test_triple_bond_is_percent_encoded(self, tmp_path):
+        from biomcp.clients.chembl import BASE_URL, ChemblClient
+
+        client = ChemblClient(
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+        )
+        route = respx.get(url__startswith=f"{BASE_URL}/similarity/").mock(
+            return_value=httpx.Response(200, json={"molecules": []})
+        )
+        await client.similar_molecules("N#Cc1ccccc1", threshold=70)
+        requested = str(route.calls[0].request.url)
+        assert "%23" in requested  # the '#' survived as an encoded character
+        assert "N%23Cc1ccccc1" in requested
+        await client.aclose()
+
+    @respx.mock
+    async def test_slash_does_not_create_a_path_segment(self, tmp_path):
+        from biomcp.clients.chembl import BASE_URL, ChemblClient
+
+        client = ChemblClient(
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+        )
+        route = respx.get(url__startswith=f"{BASE_URL}/similarity/").mock(
+            return_value=httpx.Response(200, json={"molecules": []})
+        )
+        await client.similar_molecules("C/C=C/C", threshold=70)
+        path = str(route.calls[0].request.url)
+        assert "%2F" in path
+        # One segment for the structure, one for the threshold.
+        assert path.split("/similarity/")[1].count("/") == 1
+        await client.aclose()
+
+    @respx.mock
+    async def test_plus_is_not_read_as_a_space(self, tmp_path):
+        from biomcp.clients.chembl import BASE_URL, ChemblClient
+
+        client = ChemblClient(
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+        )
+        route = respx.get(url__startswith=f"{BASE_URL}/similarity/").mock(
+            return_value=httpx.Response(200, json={"molecules": []})
+        )
+        await client.similar_molecules("CC[NH+](CC)CC", threshold=70)
+        assert "%2B" in str(route.calls[0].request.url)
+        await client.aclose()
+
+    @respx.mock
+    async def test_threshold_is_clamped_to_the_supported_range(self, tmp_path):
+        from biomcp.clients.chembl import BASE_URL, ChemblClient
+
+        client = ChemblClient(
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+        )
+        route = respx.get(url__startswith=f"{BASE_URL}/similarity/").mock(
+            return_value=httpx.Response(200, json={"molecules": []})
+        )
+        await client.similar_molecules("CCO", threshold=5)
+        # 40 is ChEMBL's floor; the path, not the query string, carries it.
+        assert route.calls[0].request.url.path.endswith("/CCO/40")
+        await client.aclose()

@@ -22,6 +22,7 @@ attribute any difference to the shaping alone.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from .base import ApiClient, ApiError
 
@@ -136,12 +137,19 @@ class ChemblClient(ApiClient):
     async def similar_molecules(
         self, smiles: str, threshold: int = 70, limit: int = 25
     ) -> tuple[list[dict[str, Any]], int]:
-        """Tanimoto similarity search. `threshold` is a percentage, 40-100."""
+        """Tanimoto similarity search. `threshold` is a percentage, 40-100.
+
+        The SMILES goes in the URL *path*, so it is percent-encoded with
+        nothing treated as safe. A triple bond is written `#`, which otherwise
+        begins a URL fragment: `N#Cc1ccccc1` reached ChEMBL as `N` and came
+        back with zero matches rather than an error. `/` for double-bond
+        configuration and `+` for a formal charge are the same hazard.
+        """
         threshold = max(40, min(100, int(threshold)))
         body = (
             await self.request_json(
                 "GET",
-                f"similarity/{smiles}/{threshold}",
+                f"similarity/{quote(smiles, safe='')}/{threshold}",
                 params={"format": "json", "limit": min(limit, 100)},
             )
             or {}
