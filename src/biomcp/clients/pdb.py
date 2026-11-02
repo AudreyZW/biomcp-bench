@@ -122,3 +122,26 @@ class PdbClient(ApiClient):
             "GET", f"{DATA_URL}/rest/v1/core/chemcomp/{ligand_id.upper()}"
         )
         return body or None
+
+    async def nonpolymer_comp_id(self, pdb_id: str, entity_id: str) -> str | None:
+        """Resolve a non-polymer *entity* id to its chemical *component* id.
+
+        These are two different identifiers and the distinction is easy to miss.
+        An entry's `non_polymer_entity_ids` are positional -- "2", "3", "4" --
+        while the chemical component endpoint is keyed by component code, like
+        "EDO" or "STI". Passing the former where the latter is expected fails
+        for every structure that has a bound ligand, which is the one case that
+        matters, and looks like an upstream outage rather than a bug.
+        """
+        body = await self.request_json(
+            "GET", f"{DATA_URL}/rest/v1/core/nonpolymer_entity/{pdb_id.upper()}/{entity_id}"
+        )
+        if not body:
+            return None
+        comp_id = (body.get("pdbx_entity_nonpoly") or {}).get("comp_id")
+        if comp_id:
+            return comp_id
+        monomers = (body.get("rcsb_nonpolymer_entity_container_identifiers") or {}).get(
+            "chem_comp_monomers"
+        ) or []
+        return monomers[0] if monomers else None

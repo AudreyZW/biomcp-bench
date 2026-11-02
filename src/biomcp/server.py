@@ -183,23 +183,38 @@ def build_server(
         raw = await pdb.entry(pdb_id)
         if raw is None:
             return {"error": f"No PDB entry {pdb_id.upper()}"}
-        # Ligand ids live in the raw record whether or not we project it.
-        ligand_ids = (raw.get("rcsb_entry_container_identifiers") or {}).get(
+        # Entity ids live in the raw record whether or not we project it, but
+        # they are not component ids: the chemical component endpoint is keyed
+        # by code ("EDO"), not by position ("2"), so each one has to be
+        # resolved first. Skipping that step made this tool report every bound
+        # ligand as unavailable -- see `nonpolymer_comp_id`.
+        entity_ids = (raw.get("rcsb_entry_container_identifiers") or {}).get(
             "non_polymer_entity_ids"
         ) or []
+        comp_ids = await asyncio.gather(
+            *(pdb.nonpolymer_comp_id(pdb_id, entity_id) for entity_id in entity_ids),
+            return_exceptions=True,
+        )
+        resolved = [c for c in comp_ids if isinstance(c, str) and c]
         fetched = await asyncio.gather(
-            *(pdb.ligand(i) for i in ligand_ids), return_exceptions=True
+            *(pdb.ligand(comp_id) for comp_id in resolved), return_exceptions=True
         )
         entry = as_entry(raw)
         payload = dict(entry) if isinstance(entry, dict) else {"entry": entry}
         payload["ligands"] = [as_ligand(lig) for lig in fetched if isinstance(lig, dict)]
-        missing = [
-            pid
-            for pid, lig in zip(ligand_ids, fetched, strict=True)
+        # Named by component id where one was resolved, and by entity id where
+        # even that failed, so the gap is always attributable.
+        unavailable = [
+            comp_id
+            for comp_id, lig in zip(resolved, fetched, strict=True)
             if not isinstance(lig, dict)
+        ] + [
+            entity_id
+            for entity_id, comp_id in zip(entity_ids, comp_ids, strict=True)
+            if not (isinstance(comp_id, str) and comp_id)
         ]
-        if missing:
-            payload["ligands_unavailable"] = missing
+        if unavailable:
+            payload["ligands_unavailable"] = unavailable
         return payload
 
     @mcp.tool(
