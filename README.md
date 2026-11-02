@@ -78,6 +78,17 @@ generated set is, if anything, generous to the 1:1 wrapper. That finding is
 real and still covered — by the pilot results recorded below and by a dedicated
 unit test — but it is no longer visible in this table.
 
+**And one of the six tools is not exercised at all.** The generated task
+families resolve targets, rank ligands by potency and compare compounds, so
+`get_structure` — single entry, with its bound ligands named — appears in no
+oracle path. That gap hid a real bug for the life of the project:
+`get_structure` passed PDB *entity* ids to the chemical *component* endpoint,
+so it reported every bound ligand as unavailable and returned none. It is
+fixed and unit-tested now, but the benchmark did not catch it and would not
+have. A task family over that path is the obvious next addition; it was left
+out of this run deliberately, so the task set stays comparable with the live
+results below.
+
 ### Three things the design bought that were not about size
 
 **The thin wrapper inherits upstream bugs.** UniProt's search returns a
@@ -191,8 +202,10 @@ ChEMBL, which returns intermittent 500s. Only 4 of its misses are clean.
 **Tool output is clipped at 20,000 characters before reaching the model**, and
 that is not a neutral limit. `qwen2.5:3b` has a 32k context, and replay
 measures 96 of the 317 tasks as producing more than that from the 1:1 wrapper
-— its median response is 6,241 tokens against 91 for the shaped server. A
-single response can exceed everything the model can hold. Clipping spares the
+— its median response is 6,241 tokens against 91 for the shaped server, and
+its largest is **504,011**, about sixteen times the whole context and more
+than most frontier models will hold either. A single response can exceed
+everything the model can hold. Clipping spares the
 raw variants the overflow they would really suffer, which flatters them, and it
 can also remove the answer from what the model sees, which penalises them for a
 limit of the harness. So the live column for variant A reports *A with its
@@ -374,18 +387,27 @@ raise, so a cache miss fails loudly instead of quietly becoming a live request
 ## Status
 
 Working, tested, and measured: both servers, the three clients, the shaping
-layer, the cache and rate limiter, the 25-task benchmark, the replay driver,
-and two live drivers (local via Ollama, frontier via the Anthropic API).
+layer, the cache and rate limiter, the 317-task benchmark across five
+variants, the replay driver, and two live drivers (local via Ollama, frontier
+via the Anthropic API).
 
-208 tests, no network. They cover the projection functions, the transport
+899 tests, no network. They cover the projection functions, the transport
 layer's retry and empty-body handling, the benchmark's grading and alias
-resolution, the paired significance arithmetic, every tool end to end against
-the committed cache, and both live agent loops — the Anthropic one via a
-scripted fake model, the Ollama one through its schema translation and grading.
+resolution, the paired significance arithmetic, the power analysis, the task
+generator's templates, every tool end to end against the committed cache, and
+both live agent loops — the Anthropic one via a scripted fake model, the
+Ollama one through its schema translation, grading and retry behaviour.
 
-Not done: a live run with enough statistical power to support a claim about
-success rate. The local-model run above is reported as the null result it is.
-The frontier driver has never been run.
+A good share of those tests exist because something was wrong. The ones worth
+naming: a PDB entry's entity ids were being passed to the chemical component
+endpoint, so no structure ever returned its bound ligands; `.+` was accepted
+as a grade for 19 tasks, which passes on any answer at all; and
+`"CHEMBL25" in "CHEMBL250"` was scoring a wrong id as correct.
+
+Not done: a frontier-model run. The `--mode live` driver is written and
+tested against a scripted model but has never been pointed at the API. And
+`get_structure` is still absent from every oracle path, which is how the
+ligand bug above survived.
 
 ## Licence
 
