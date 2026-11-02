@@ -150,10 +150,22 @@ def summarise(rows: list[dict], mode: str) -> None:
         if variant.name in by_variant:
             print(f"  {variant.name}: {variant.isolates}")
     if mode != "replay":
+        from stats import paired_report
+
+        names = [v.name for v in VARIANTS if v.name in by_variant]
+        pairs = list(zip(names, names[1:], strict=False))
+        if len(names) > 2:
+            pairs.append((names[0], names[-1]))
+        if pairs:
+            print("\nPaired significance (McNemar, exact, two-sided):")
+            for line in paired_report(rows, pairs):
+                print("  " + line)
         print(
             "\nNote: 'solved' is this model's success rate on these tasks. Compare the\n"
             "columns against each other, not against published leaderboards -- a\n"
-            "different model moves every row."
+            "different model moves every row. With 25 tasks and a sampled model, a\n"
+            "monotonic trend can still be well short of significant; read the table\n"
+            "above before drawing a conclusion from the column."
         )
     if mode == "replay":
         print(

@@ -46,7 +46,8 @@ Reading the comparisons:
   cheapest to implement.
 - **C → D (schema documentation).** Costs 234 tokens and changes nothing in
   replay, which is expected: documentation affects which tool a *model* picks,
-  and replay follows a fixed path. Isolating it needs `--mode live`.
+  and replay follows a fixed path. See the live results below, where it moves
+  but not significantly.
 
 Token counts are characters ÷ 4. JSON tokenises worse than prose, so these are
 if anything conservative for the raw variants — the real gap is likely wider,
@@ -94,42 +95,63 @@ mid-pass. Tasks whose path hits an upstream error are now counted separately
 and excluded from the ratio rather than charged to the tool design — a
 benchmark against live flaky endpoints measures their uptime, not your design.
 
-### Measuring success rate
+### Success rate: a local model, and a null result
 
-Replay follows a known-correct path, so it establishes what an answer *costs*
-and whether it *survives* the tools. It says nothing about whether a model
-finds the path. Two drivers do that.
-
-**A local model, no API key, no cost.** Install [Ollama](https://ollama.com),
-pull a tool-calling model, and run:
+Replay follows a known-correct path, so it says nothing about whether a model
+*finds* the path. A local model measures that with no API key and no cost:
 
 ```bash
 ollama pull qwen2.5:3b
 uv run python evals/run.py --mode ollama --variant all
 ```
 
-**A frontier model**, with `ANTHROPIC_API_KEY` set:
+`qwen2.5:3b`, 25 tasks, same model throughout:
 
-```bash
-uv run python evals/run.py --mode live --variant C,D
-```
+| | tools | calls | solved | tasks hitting a tool error |
+| --- | --- | --- | --- | --- |
+| **A** 1:1 wrappers, raw | 22 | 1.8 | 9/25 | 10 |
+| **B** task-shaped, raw | 6 | 1.0 | 11/25 | 8 |
+| **C** task-shaped, shaped | 6 | 1.2 | 13/25 | 9 |
+| **D** C + documented schemas | 6 | 1.5 | **15/25** | 7 |
 
-Read the `solved` column across variants, never against a published
-leaderboard: a different model moves every row. A small local model scores far
-below the 43–62% that MCP-Atlas and MCP-Universe report for frontier models,
-and that is expected.
+Monotonic, in the predicted direction, 36% to 60%. **And not significant at any
+step.** Every variant runs the same tasks against the same model, so the
+comparisons are paired; McNemar's exact test says:
 
-If anything a weaker model is the more sensitive instrument. A frontier model
-can often reason its way around a badly shaped tool, which masks the very
-differences this benchmark is trying to isolate.
+| comparison | gained | lost | net | p |
+| --- | --- | --- | --- | --- |
+| A → B | 7 | 5 | +2 | 0.774 |
+| B → C | 3 | 1 | +2 | 0.625 |
+| C → D | 3 | 1 | +2 | 0.625 |
+| A → D | 11 | 5 | +6 | 0.210 |
 
-A live run is not fully reproducible, for two reasons worth stating. The model
-picks its own arguments, so it misses the pinned cache and reaches the live
-services — and ChEMBL is unreliable. The driver therefore counts every tool
-error, including the graceful `{"error": ...}` payloads a degrading tool
-returns, so an upstream outage is visible in the results instead of being
-charged to the tool design. And the model is sampled, so the numbers move
-between runs. Replay is the reproducible half; this half is indicative.
+A tidy monotonic trend is what noise looks like at this sample size. With 25
+tasks you need six unanimous flips before p drops under 0.05, and the best
+comparison here manages +6 net out of 16 disagreements. Note also that A → D
+*lost* five tasks it had previously solved — this is not a clean sweep.
+
+Two further confounds, both reported by the runner rather than buried:
+
+- **Upstream flakiness.** 6 of variant D's 10 misses involved a tool error.
+  The model picks its own arguments, so it misses the pinned cache and reaches
+  live ChEMBL, which returns intermittent 500s. Only 4 of its misses are clean.
+- **Sampling.** The model is sampled, so the numbers move between runs. There
+  is no repeated-trial averaging here.
+
+So the honest summary is two-tier. **Replay is the reproducible result**:
+deterministic, offline, and a 36× context reduction with derivability going
+21/25 → 25/25. **The live run is indicative only** — consistent with the
+design mattering, and nowhere near evidence of it.
+
+What would settle it: more tasks, several sampled runs per variant, a cache
+covering the arguments a model actually chooses, and a stronger model. The
+`--mode live` driver runs against a frontier model with `ANTHROPIC_API_KEY`
+set, which would address the last of those.
+
+One thing the live run did show that replay structurally cannot: **C → D moved
+at all.** Replay follows a fixed path, so schema documentation is invisible to
+it by construction. The live run is the only place that comparison can happen,
+even if +2 does not carry it.
 
 ## The design rules
 
@@ -282,15 +304,18 @@ raise, so a cache miss fails loudly instead of quietly becoming a live request
 ## Status
 
 Working, tested, and measured: both servers, the three clients, the shaping
-layer, the cache and rate limiter, the 25-task benchmark and its replay driver.
-169 tests cover the projection functions, the transport layer's retry and
-empty-body handling, the benchmark's grading and alias resolution, the tools
-end to end against the committed cache, and the live agent loop via a scripted
-fake model.
+layer, the cache and rate limiter, the 25-task benchmark, the replay driver,
+and two live drivers (local via Ollama, frontier via the Anthropic API).
 
-Unrun: the live driver against a real model, which is what would turn
-"derivable" into a success rate. Its loop is tested; only the model calls are
-untried. The README claims no success rate until that runs.
+208 tests, no network. They cover the projection functions, the transport
+layer's retry and empty-body handling, the benchmark's grading and alias
+resolution, the paired significance arithmetic, every tool end to end against
+the committed cache, and both live agent loops — the Anthropic one via a
+scripted fake model, the Ollama one through its schema translation and grading.
+
+Not done: a live run with enough statistical power to support a claim about
+success rate. The local-model run above is reported as the null result it is.
+The frontier driver has never been run.
 
 ## Licence
 
