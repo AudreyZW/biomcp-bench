@@ -27,7 +27,7 @@ answers them in **777 tokens** of context where the 1:1 wrapper needs
 ## Results
 
 317 tasks, each with a verifiable answer and an oracle call path per server.
-Four configurations, one knob changed at a time:
+Five configurations, one knob changed at a time:
 
 | | tools | defn tokens | calls | response tokens | total context |
 | --- | --- | --- | --- | --- | --- |
@@ -35,9 +35,11 @@ Four configurations, one knob changed at a time:
 | **B** task-shaped, raw | 6 | 671 | 1.0 | 2,437 | 3,108 |
 | **C** task-shaped, shaped | 6 | 671 | 1.0 | 89 | **760** |
 | **D** C + documented schemas | 6 | 905 | 1.0 | 89 | 994 |
+| **E** 1:1 wrappers, documented | 22 | 2,973 | 1.4 | 78,071 | 81,044 |
 
 **105× less context** between the 1:1 wrapper and the task-shaped server with
-shaping on. Reading the comparisons:
+shaping on, and **82×** between the two documented servers, E and D. Reading
+the comparisons:
 
 - **A → B (tool count).** 22 endpoint wrappers to 6 task-shaped tools cuts
   definition overhead 2.9× and response volume 32×. Definitions are paid on
@@ -48,6 +50,16 @@ shaping on. Reading the comparisons:
 - **C → D (schema documentation).** Costs 234 tokens and changes nothing in
   replay, which is expected: documentation affects which tool a *model* picks,
   and replay follows a fixed path. See the live results below.
+- **E → D (tool count, documentation held equal).** The chain above only ever
+  adds documentation on top of the 6-tool server, so `A → D` conflates
+  consolidating the tools with documenting them. E is the baseline's strongest
+  form — the same 22 wrappers, carrying the RCSB attribute paths, the operator
+  vocabulary, and the warnings a careful author would write — and it still
+  costs 82× the context of D.
+
+E only became an honest arm after the baseline was documented. Rendering the
+22-tool server with documentation on previously moved its definitions by 1% and
+added no parameter descriptions at all, because there were none to keep.
 
 Token counts are characters ÷ 4. JSON tokenises worse than prose, so these are
 conservative for the raw variants — the real gap is likely wider.
