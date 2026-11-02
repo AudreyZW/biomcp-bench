@@ -1,0 +1,248 @@
+# Benchmark tasks: realistic structural-biology and medicinal-chemistry
+# questions with answers that can be checked programmatically.
+#
+# Each task carries an oracle path per tool family -- the minimal correct call
+# sequence. `$find:a|b` pulls a value from an earlier response, naming every
+# alias it goes by: shaped responses say `uniprot`, raw upstream ones say
+# `primaryAccession`. Needing both names is the cost of raw responses, visible.
+#
+# `expect` pins facts that do not drift. `pattern` checks the shape of answers
+# that do, because ChEMBL grows and the most potent known compound changes.
+
+- id: egfr_accession
+  question: What is the UniProt accession for human EGFR?
+  grade: {keys: [uniprot, primaryAccession], expect: P00533}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: EGFR, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "EGFR AND organism_id:9606 AND reviewed:true", size: 1}}
+
+- id: egfr_chembl_target
+  question: Which ChEMBL target corresponds to human EGFR?
+  grade: {keys: [chembl_target, target_chembl_id], expect: CHEMBL203}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: EGFR, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "EGFR AND organism_id:9606 AND reviewed:true", size: 1}}
+      - {tool: chembl_filter_targets_by_accession, args: {accession: "$find:primaryAccession", limit: 1}}
+
+- id: egfr_most_potent
+  question: What is the ChEMBL ID of the most potent known EGFR inhibitor by pChEMBL value?
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: EGFR, limit: 1}}
+      - {tool: find_ligands, args: {target: "$find:uniprot|primaryAccession", limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "EGFR AND organism_id:9606 AND reviewed:true", size: 1}}
+      - {tool: chembl_filter_targets_by_accession, args: {accession: "$find:primaryAccession", limit: 1}}
+      - {tool: chembl_filter_activities, args: {target_chembl_id: "$find:target_chembl_id", order_by: "-pchembl_value", limit: 1}}
+
+- id: egfr_best_structure
+  question: What is the PDB ID of the best-resolved EGFR structure with a bound ligand?
+  grade: {keys: [pdb_id, rcsb_id, identifier], pattern: "[0-9A-Za-z]{4}"}
+  oracle:
+    task_shaped:
+      - {tool: get_structures, args: {uniprot_accession: P00533, require_ligand: true, limit: 1}}
+    granular:
+      - {tool: pdb_search_combined, args: {attribute_a: "rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession", operator_a: exact_match, value_a: P00533, attribute_b: "rcsb_entry_info.nonpolymer_entity_count", operator_b: greater, value_b: 0, rows: 1}}
+
+- id: egfr_liganded_count
+  question: How many EGFR structures in the PDB have a bound small molecule?
+  grade: {keys: [total_matches, total_count], pattern: "[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: get_structures, args: {uniprot_accession: P00533, require_ligand: true, limit: 1}}
+    granular:
+      - {tool: pdb_search_combined, args: {attribute_a: "rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession", operator_a: exact_match, value_a: P00533, attribute_b: "rcsb_entry_info.nonpolymer_entity_count", operator_b: greater, value_b: 0, rows: 1}}
+
+- id: mpro_6lu7_resolution
+  question: What is the resolution of PDB entry 6LU7?
+  grade: {keys: [resolution_a, resolution_combined], expect: "2.16"}
+  oracle:
+    task_shaped:
+      - {tool: get_structure, args: {pdb_id: 6LU7}}
+    granular:
+      - {tool: pdb_get_entry_info, args: {pdb_id: 6LU7}}
+
+- id: mpro_6lu7_method
+  question: What experimental method produced PDB entry 6LU7?
+  grade: {keys: [method, experimental_method], expect: X-ray}
+  oracle:
+    task_shaped:
+      - {tool: get_structure, args: {pdb_id: 6LU7}}
+    granular:
+      - {tool: pdb_get_entry_info, args: {pdb_id: 6LU7}}
+
+- id: gefitinib_weight
+  question: What is the molecular weight of gefitinib (CHEMBL939)?
+  grade: {keys: [mol_weight, full_mwt], expect: "446.91"}
+  oracle:
+    task_shaped:
+      - {tool: compare_compounds, args: {chembl_ids: [CHEMBL939]}}
+    granular:
+      - {tool: chembl_get_molecule, args: {molecule_chembl_id: CHEMBL939}}
+
+- id: gefitinib_phase
+  question: What is the maximum clinical phase reached by gefitinib?
+  grade: {keys: [max_clinical_phase, max_phase], pattern: "4(\\.0)?"}
+  oracle:
+    task_shaped:
+      - {tool: compare_compounds, args: {chembl_ids: [CHEMBL939]}}
+    granular:
+      - {tool: chembl_get_molecule, args: {molecule_chembl_id: CHEMBL939}}
+
+- id: gefitinib_ro5
+  question: How many Lipinski rule-of-five violations does gefitinib have?
+  grade: {keys: [ro5_violations, num_ro5_violations], expect: "0"}
+  oracle:
+    task_shaped:
+      - {tool: compare_compounds, args: {chembl_ids: [CHEMBL939]}}
+    granular:
+      - {tool: chembl_get_molecule, args: {molecule_chembl_id: CHEMBL939}}
+
+- id: braf_accession
+  question: What is the UniProt accession for human BRAF?
+  grade: {keys: [uniprot, primaryAccession], expect: P15056}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: BRAF, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "BRAF AND organism_id:9606 AND reviewed:true", size: 1}}
+
+- id: braf_best_structure
+  question: What is the best-resolved BRAF structure in the PDB?
+  grade: {keys: [pdb_id, rcsb_id, identifier], pattern: "[0-9A-Za-z]{4}"}
+  oracle:
+    task_shaped:
+      - {tool: get_structures, args: {uniprot_accession: P15056, limit: 1}}
+    granular:
+      - {tool: pdb_search_sorted_by_resolution, args: {attribute: "rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession", operator: exact_match, value: P15056, rows: 1}}
+
+- id: braf_most_potent_ki
+  question: What is the most potent BRAF binder measured by Ki?
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_ligands, args: {target: P15056, assay_type: Ki, limit: 1}}
+    granular:
+      - {tool: chembl_filter_targets_by_accession, args: {accession: P15056, limit: 1}}
+      - {tool: chembl_filter_activities, args: {target_chembl_id: "$find:target_chembl_id", standard_type: Ki, order_by: "-pchembl_value", limit: 1}}
+
+- id: cdk2_accession
+  question: What is the UniProt accession for human CDK2?
+  grade: {keys: [uniprot, primaryAccession], expect: P24941}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: CDK2, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "CDK2 AND organism_id:9606 AND reviewed:true", size: 1}}
+
+- id: cdk2_structure_count
+  question: How many PDB structures reference human CDK2?
+  grade: {keys: [structure_count, total_matches, total_count], pattern: "[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: get_structures, args: {uniprot_accession: P24941, limit: 1}}
+    granular:
+      - {tool: pdb_search_by_uniprot, args: {accession: P24941, rows: 1}}
+
+- id: cdk2_most_potent
+  question: What is the most potent known CDK2 inhibitor by pChEMBL?
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_ligands, args: {target: P24941, limit: 1}}
+    granular:
+      - {tool: chembl_filter_targets_by_accession, args: {accession: P24941, limit: 1}}
+      - {tool: chembl_filter_activities, args: {target_chembl_id: "$find:target_chembl_id", order_by: "-pchembl_value", limit: 1}}
+
+- id: abl1_accession
+  question: What is the UniProt accession for human ABL1?
+  grade: {keys: [uniprot, primaryAccession], expect: P00519}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: ABL1, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "ABL1 AND organism_id:9606 AND reviewed:true", size: 1}}
+
+- id: abl1_most_potent
+  question: What is the most potent known ABL1 inhibitor?
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_ligands, args: {target: P00519, limit: 1}}
+    granular:
+      - {tool: chembl_filter_targets_by_accession, args: {accession: P00519, limit: 1}}
+      - {tool: chembl_filter_activities, args: {target_chembl_id: "$find:target_chembl_id", order_by: "-pchembl_value", limit: 1}}
+
+- id: thrombin_accession
+  question: What is the UniProt accession for human prothrombin?
+  grade: {keys: [uniprot, primaryAccession], expect: P00734}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: prothrombin, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "prothrombin AND organism_id:9606 AND reviewed:true", size: 1}}
+
+- id: thrombin_best_structure
+  question: What is the best-resolved thrombin structure with a bound ligand?
+  grade: {keys: [pdb_id, rcsb_id, identifier], pattern: "[0-9A-Za-z]{4}"}
+  oracle:
+    task_shaped:
+      - {tool: get_structures, args: {uniprot_accession: P00734, require_ligand: true, limit: 1}}
+    granular:
+      - {tool: pdb_search_combined, args: {attribute_a: "rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession", operator_a: exact_match, value_a: P00734, attribute_b: "rcsb_entry_info.nonpolymer_entity_count", operator_b: greater, value_b: 0, rows: 1}}
+
+- id: vegfr2_most_potent_ic50
+  question: What is the most potent VEGFR2 inhibitor by IC50?
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_ligands, args: {target: CHEMBL279, assay_type: IC50, limit: 1}}
+    granular:
+      - {tool: chembl_filter_activities, args: {target_chembl_id: CHEMBL279, standard_type: IC50, order_by: "-pchembl_value", limit: 1}}
+
+- id: aspirin_similar
+  question: Which compounds are structurally similar to aspirin at 70% Tanimoto?
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_similar_compounds, args: {smiles: "CC(=O)Oc1ccccc1C(=O)O", threshold: 70, limit: 3}}
+    granular:
+      - {tool: chembl_similarity_search, args: {smiles: "CC(=O)Oc1ccccc1C(=O)O", threshold: 70, limit: 3}}
+
+- id: imatinib_weight
+  question: What is the molecular weight of imatinib (CHEMBL941)?
+  grade: {keys: [mol_weight, full_mwt], pattern: "49[0-9]\\.[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: compare_compounds, args: {chembl_ids: [CHEMBL941]}}
+    granular:
+      - {tool: chembl_get_molecule, args: {molecule_chembl_id: CHEMBL941}}
+
+- id: mpro_accession
+  question: Which UniProt entry contains the SARS-CoV-2 main protease?
+  grade: {keys: [uniprot, primaryAccession], pattern: "P0DT[A-Z][0-9]"}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: "3C-like proteinase", organism_id: 2697049, limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "\"3C-like proteinase\" AND organism_id:2697049", size: 1}}
+
+- id: cross_db_egfr_pipeline
+  question: For EGFR, give the best-resolved liganded structure and the most potent known inhibitor.
+  grade: {keys: [compound, molecule_chembl_id], pattern: "CHEMBL[0-9]+"}
+  oracle:
+    task_shaped:
+      - {tool: find_target, args: {query: EGFR, limit: 1}}
+      - {tool: get_structures, args: {uniprot_accession: "$find:uniprot|primaryAccession", require_ligand: true, limit: 1}}
+      - {tool: find_ligands, args: {target: "$find:chembl_target|target_chembl_id", limit: 1}}
+    granular:
+      - {tool: uniprot_search, args: {query: "EGFR AND organism_id:9606 AND reviewed:true", size: 1}}
+      - {tool: pdb_search_combined, args: {attribute_a: "rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession", operator_a: exact_match, value_a: "$find:primaryAccession", attribute_b: "rcsb_entry_info.nonpolymer_entity_count", operator_b: greater, value_b: 0, rows: 1}}
+      - {tool: pdb_get_entry_info, args: {pdb_id: "$find:identifier"}}
+      - {tool: chembl_filter_targets_by_accession, args: {accession: P00533, limit: 1}}
+      - {tool: chembl_filter_activities, args: {target_chembl_id: "$find:target_chembl_id", order_by: "-pchembl_value", limit: 1}}

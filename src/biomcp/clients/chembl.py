@@ -9,13 +9,16 @@ API notes worth knowing before changing this file:
   query, which is stable. Both were verified against the live API.
 * Potency should be compared on `pchembl_value`, never on `standard_value`,
   which is reported in mixed units across assays.
+
+Methods here return upstream records unchanged. Projection happens at the
+server boundary so that `evals/` can serve the same data shaped or raw and
+attribute any difference to the shaping alone.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from ..shaping import shape_activity, shape_molecule, shape_target
 from .base import ApiClient, ApiError
 
 BASE_URL = "https://www.ebi.ac.uk/chembl/api/data"
@@ -39,8 +42,7 @@ class ChemblClient(ApiClient):
             body = await self._get(
                 "target", {"pref_name__icontains": query, "limit": limit}
             )
-        targets = (body or {}).get("targets") or []
-        return [shape_target(t) for t in targets]
+        return (body or {}).get("targets") or []
 
     async def target_for_accession(self, accession: str) -> dict[str, Any] | None:
         """Find the ChEMBL target that corresponds to a UniProt accession.
@@ -54,7 +56,7 @@ class ChemblClient(ApiClient):
             {"target_components__accession": accession, "limit": 1},
         ) or {}
         targets = body.get("targets") or []
-        return shape_target(targets[0]) if targets else None
+        return targets[0] if targets else None
 
     async def activities(
         self,
@@ -80,7 +82,7 @@ class ChemblClient(ApiClient):
         if min_potency is not None:
             params["pchembl_value__gte"] = min_potency
         body = await self._get("activity", params) or {}
-        rows = [shape_activity(a) for a in body.get("activities") or []]
+        rows = body.get("activities") or []
         total = int((body.get("page_meta") or {}).get("total_count") or len(rows))
         return rows, total
 
@@ -91,7 +93,7 @@ class ChemblClient(ApiClient):
             "molecule",
             {"molecule_chembl_id__in": ",".join(chembl_ids), "limit": len(chembl_ids)},
         ) or {}
-        return [shape_molecule(m) for m in body.get("molecules") or []]
+        return body.get("molecules") or []
 
     async def similar_molecules(
         self, smiles: str, threshold: int = 70, limit: int = 25
@@ -105,4 +107,4 @@ class ChemblClient(ApiClient):
         ) or {}
         molecules = body.get("molecules") or []
         total = int((body.get("page_meta") or {}).get("total_count") or len(molecules))
-        return [shape_molecule(m) for m in molecules], total
+        return molecules, total

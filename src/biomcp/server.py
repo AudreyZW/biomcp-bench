@@ -12,14 +12,19 @@ Six tools, not twenty-two. The design rules, which `evals/` exists to test:
    `total_matches`, because a model given 25 of 29,582 rows with no indication
    will reason as though it has seen everything.
 4. **Degradation is explicit.** ChEMBL's filtered queries fail intermittently;
-   when that happens the tool returns what it has plus a `notes` field rather
+   when that happens the tool returns what it has plus a stated reason rather
    than failing the whole call.
+
+Rule 2 is a flag, not a fact: `build_server(shaping=False)` returns the same
+tools over the same data with projection switched off, which is how the
+benchmark attributes a difference to the shaping alone.
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import Annotated, Any
+from dataclasses import dataclass
+from typing import Annotated, Any, Callable
 
 from mcp.server import MCPServer
 from pydantic import Field
@@ -29,6 +34,14 @@ from .clients.base import ApiError
 from .clients.chembl import ChemblClient
 from .clients.pdb import PdbClient
 from .clients.uniprot import UniprotClient
+from .shaping import (
+    shape_activity,
+    shape_chemical_component,
+    shape_molecule,
+    shape_pdb_entry,
+    shape_target,
+    shape_uniprot_entry,
+)
 
 INSTRUCTIONS = """\
 Structural-biology and medicinal-chemistry lookups over three public archives.
@@ -43,23 +56,37 @@ units.
 """
 
 
-def build_server() -> MCPServer:
-    cache = ResponseCache()
-    limiter = RateLimiter(min_interval=0.2)
-    clients = {
-        "uniprot": UniprotClient(cache=cache, limiter=limiter),
-        "pdb": PdbClient(cache=cache, limiter=limiter),
-        "chembl": ChemblClient(cache=cache, limiter=limiter),
-    }
-    uniprot: UniprotClient = clients["uniprot"]  # type: ignore[assignment]
-    pdb: PdbClient = clients["pdb"]  # type: ignore[assignment]
-    chembl: ChemblClient = clients["chembl"]  # type: ignore[assignment]
+@dataclass(frozen=True)
+class ServerConfig:
+    """Only shaping varies here. Tool count is `granular.py`; schema verbosity
+    is applied by the benchmark when it renders tool definitions for a model."""
 
-    mcp = MCPServer(
-        name="biomcp",
-        version="0.1.0",
-        instructions=INSTRUCTIONS,
-    )
+    shaping: bool = True
+
+
+def _projector(shaping: bool, fn: Callable[[dict], dict]) -> Callable[[Any], Any]:
+    """Return `fn` when shaping is on, else a passthrough."""
+    if not shaping:
+        return lambda record: record
+    return lambda record: fn(record) if isinstance(record, dict) else record
+
+
+def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MCPServer:
+    config = ServerConfig(shaping=shaping)
+    cache = cache if cache is not None else ResponseCache()
+    limiter = RateLimiter(min_interval=0.2)
+    uniprot = UniprotClient(cache=cache, limiter=limiter)
+    pdb = PdbClient(cache=cache, limiter=limiter)
+    chembl = ChemblClient(cache=cache, limiter=limiter)
+
+    as_uniprot = _projector(config.shaping, shape_uniprot_entry)
+    as_target = _projector(config.shaping, shape_target)
+    as_activity = _projector(config.shaping, shape_activity)
+    as_molecule = _projector(config.shaping, shape_molecule)
+    as_entry = _projector(config.shaping, shape_pdb_entry)
+    as_ligand = _projector(config.shaping, shape_chemical_component)
+
+    mcp = MCPServer(name="biomcp", version="0.1.0", instructions=INSTRUCTIONS)
 
     @mcp.tool(
         description=(
@@ -76,29 +103,30 @@ def build_server() -> MCPServer:
         ] = 9606,
         limit: Annotated[int, Field(ge=1, le=10)] = 3,
     ) -> dict[str, Any]:
-        matches = await uniprot.resolve(
+        raw_matches = await uniprot.resolve(
             query, organism_id=organism_id, reviewed_only=organism_id is not None, limit=limit
         )
-        if not matches:
+        if not raw_matches:
             return {"matches": [], "notes": "No UniProt entry matched that name."}
 
         notes: list[str] = []
 
-        async def annotate(entry: dict[str, Any]) -> dict[str, Any]:
-            accession = entry["uniprot"]
+        async def annotate(raw: dict[str, Any]) -> dict[str, Any]:
+            accession = raw.get("primaryAccession")
+            entry = dict(as_uniprot(raw))
             _, total = await pdb.structures_for_uniprot(accession, rows=1)
-            enriched = {**entry, "structure_count": total}
+            entry["structure_count"] = total
             try:
                 target = await chembl.target_for_accession(accession)
-                enriched["chembl_target"] = target["target"] if target else None
+                entry["chembl_target"] = (target or {}).get("target_chembl_id")
             except ApiError:
-                enriched["chembl_target"] = None
+                entry["chembl_target"] = None
                 notes.append(
                     f"ChEMBL lookup for {accession} failed; retry find_ligands later."
                 )
-            return enriched
+            return entry
 
-        annotated = await asyncio.gather(*(annotate(m) for m in matches))
+        annotated = await asyncio.gather(*(annotate(m) for m in raw_matches))
         result: dict[str, Any] = {"matches": list(annotated)}
         if notes:
             result["notes"] = " ".join(dict.fromkeys(notes))
@@ -111,16 +139,22 @@ def build_server() -> MCPServer:
         )
     )
     async def get_structures(
-        uniprot: Annotated[str, Field(description="UniProt accession, e.g. 'P00533'")],
+        uniprot_accession: Annotated[
+            str, Field(description="UniProt accession, e.g. 'P00533'")
+        ],
         require_ligand: Annotated[
             bool, Field(description="Only structures with a bound small molecule")
         ] = False,
         limit: Annotated[int, Field(ge=1, le=50)] = 10,
     ) -> dict[str, Any]:
         rows, total = await pdb.structures_for_uniprot(
-            uniprot, rows=limit, require_ligand=require_ligand
+            uniprot_accession, rows=limit, require_ligand=require_ligand
         )
-        return {"structures": rows, "showing": len(rows), "total_matches": total}
+        return {
+            "structures": [as_entry(r) for r in rows],
+            "showing": len(rows),
+            "total_matches": total,
+        }
 
     @mcp.tool(
         description=(
@@ -131,13 +165,18 @@ def build_server() -> MCPServer:
     async def get_structure(
         pdb_id: Annotated[str, Field(description="Four-character PDB id, e.g. '6LU7'")],
     ) -> dict[str, Any]:
-        entry = await pdb.entry(pdb_id)
-        if entry is None:
+        raw = await pdb.entry(pdb_id)
+        if raw is None:
             return {"error": f"No PDB entry {pdb_id.upper()}"}
-        ligands = await asyncio.gather(
-            *(pdb.ligand(i) for i in entry.get("ligand_ids") or [])
-        )
-        return {**entry, "ligands": [lig for lig in ligands if lig]}
+        # Ligand ids live in the raw record whether or not we project it.
+        ligand_ids = (raw.get("rcsb_entry_container_identifiers") or {}).get(
+            "non_polymer_entity_ids"
+        ) or []
+        ligands = await asyncio.gather(*(pdb.ligand(i) for i in ligand_ids))
+        entry = as_entry(raw)
+        payload = dict(entry) if isinstance(entry, dict) else {"entry": entry}
+        payload["ligands"] = [as_ligand(lig) for lig in ligands if lig]
+        return payload
 
     @mcp.tool(
         description=(
@@ -162,16 +201,13 @@ def build_server() -> MCPServer:
             try:
                 resolved = await chembl.target_for_accession(target)
             except ApiError:
-                # ChEMBL's accession filter is one of the endpoints that fails
-                # intermittently. Say so, and say what still works, rather than
-                # failing the call and leaving the model to guess why.
                 return {
                     "error": "ChEMBL target lookup is unavailable right now.",
                     "retry": "Call again, or pass a ChEMBL target id directly.",
                 }
             if not resolved:
                 return {"error": f"No ChEMBL target for accession {target}"}
-            target_id = resolved["target"]
+            target_id = resolved.get("target_chembl_id")
         try:
             rows, total = await chembl.activities(
                 target_id, assay_type=assay_type, min_potency=min_potency, limit=limit
@@ -184,7 +220,7 @@ def build_server() -> MCPServer:
             }
         return {
             "target": target_id,
-            "ligands": rows,
+            "ligands": [as_activity(r) for r in rows],
             "showing": len(rows),
             "total_matches": total,
             "potency_scale": "pChEMBL (-log10 molar); higher is more potent",
@@ -198,7 +234,8 @@ def build_server() -> MCPServer:
             list[str], Field(description="ChEMBL molecule ids", max_length=25)
         ],
     ) -> dict[str, Any]:
-        return {"compounds": await chembl.molecules(chembl_ids)}
+        rows = await chembl.molecules(chembl_ids)
+        return {"compounds": [as_molecule(r) for r in rows]}
 
     @mcp.tool(
         description=(
@@ -215,7 +252,7 @@ def build_server() -> MCPServer:
     ) -> dict[str, Any]:
         rows, total = await chembl.similar_molecules(smiles, threshold=threshold, limit=limit)
         return {
-            "compounds": rows,
+            "compounds": [as_molecule(r) for r in rows],
             "showing": len(rows),
             "total_matches": total,
             "threshold": threshold,
@@ -234,7 +271,7 @@ def build_server() -> MCPServer:
         response.raise_for_status()
         return response.text
 
-    mcp._biomcp_clients = clients  # type: ignore[attr-defined]
+    mcp._biomcp_clients = {"uniprot": uniprot, "pdb": pdb, "chembl": chembl}  # type: ignore[attr-defined]
     return mcp
 
 
@@ -242,7 +279,7 @@ def main() -> None:
     import sys
 
     transport = "streamable-http" if "--http" in sys.argv else "stdio"
-    build_server().run(transport=transport)
+    build_server(shaping="--raw" not in sys.argv).run(transport=transport)
 
 
 if __name__ == "__main__":

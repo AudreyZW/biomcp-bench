@@ -127,3 +127,17 @@ def shape_chemical_component(raw: dict[str, Any]) -> dict[str, Any]:
             ]
         ),
     }
+
+
+def shape_uniprot_entry(raw: dict[str, Any]) -> dict[str, Any]:
+    """A UniProt hit reduced to the accession and enough text to confirm it."""
+    genes = raw.get("genes") or []
+    gene = (genes[0].get("geneName") or {}).get("value") if genes else None
+    description = raw.get("proteinDescription") or {}
+    recommended = (description.get("recommendedName") or {}).get("fullName") or {}
+    return {
+        "uniprot": raw.get("primaryAccession"),
+        "gene": gene,
+        "protein_name": recommended.get("value"),
+        "organism": (raw.get("organism") or {}).get("scientificName"),
+    }

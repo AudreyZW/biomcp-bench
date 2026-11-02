@@ -8,6 +8,8 @@ Two endpoints, no authentication:
 The search service returns identifiers and scores only, so anything about a
 structure costs a second Data API call per entry. That asymmetry is why
 `structures_for_uniprot` fetches entries concurrently rather than serially.
+
+Methods here return upstream records unchanged; see `clients/chembl.py` for why.
 """
 
 from __future__ import annotations
@@ -15,7 +17,6 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from ..shaping import shape_chemical_component, shape_pdb_entry
 from .base import ApiClient
 
 SEARCH_URL = "https://search.rcsb.org"
@@ -67,7 +68,7 @@ class PdbClient(ApiClient):
             "GET",
             f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}"
         )
-        return shape_pdb_entry(body) if body else None
+        return body or None
 
     async def _entries(self, pdb_ids: list[str]) -> list[dict[str, Any]]:
         # The Data API is one call per entry; the rate limiter still serialises
@@ -115,4 +116,4 @@ class PdbClient(ApiClient):
         body = await self.request_json(
             "GET", f"{DATA_URL}/rest/v1/core/chemcomp/{ligand_id.upper()}"
         )
-        return shape_chemical_component(body) if body else None
+        return body or None

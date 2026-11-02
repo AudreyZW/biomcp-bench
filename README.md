@@ -16,9 +16,84 @@ benchmarks varies the server. So "inadequate tool usage" is measured as a
 property of the model, when some of it is plainly a property of the tools:
 their number, their granularity, the shape of what they return.
 
-This repository holds a server designed around four explicit rules, and
-(in progress, see [Status](#status)) a harness that varies those rules and
-measures what changes.
+This repository holds a server designed around four explicit rules, a
+second server that wraps the same three APIs one-to-one instead, and a harness
+that varies the design and measures what changes.
+
+The short version: across 25 drug-discovery questions, the task-shaped server
+answers them in **772 tokens** of context where the 1:1 wrapper needs
+**28,285** — 37× less — and it gets four more of them right.
+
+## Results
+
+25 tasks, each with a verifiable answer and an oracle call path per server.
+Four configurations, one knob changed at a time:
+
+| | tools | defn tokens | calls | response tokens | total | answer derivable |
+| --- | --- | --- | --- | --- | --- | --- |
+| **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 26,364 | **28,285** | 21/25 |
+| **B** task-shaped, raw | 6 | 671 | 1.1 | 3,322 | 3,993 | 24/25 |
+| **C** task-shaped, shaped | 6 | 671 | 1.1 | 101 | **772** | 25/25 |
+| **D** C + documented schemas | 6 | 894 | 1.1 | 101 | 995 | 25/25 |
+
+Reading the comparisons:
+
+- **A → B (tool count).** Collapsing 22 endpoint wrappers into 6 task-shaped
+  tools cuts definition overhead 2.9× and response volume 7.9×. Definitions are
+  paid on every request before any data comes back.
+- **B → C (response shaping).** Projection alone cuts response volume **32.9×**,
+  from 3,322 tokens to 101. This is the single largest effect, and it is the
+  cheapest to implement.
+- **C → D (schema documentation).** Costs 223 tokens and changes nothing in
+  replay, which is expected: documentation affects which tool a *model* picks,
+  and replay follows a fixed path. Isolating it needs `--mode live`.
+
+### Two things shaping bought that were not about size
+
+**The thin wrapper inherits upstream bugs.** UniProt's search returns a
+different top hit at `size=1` than at `size=2` — ask for one result for `EGFR`
+and you get CBLC. Variant A passes `size` straight through, so it answers three
+accession questions with a confidently wrong protein (CBLC for EGFR, CDKN3 for
+CDK2, RIN1 for ABL1), and then a fourth wrong answer downstream when the bad
+accession resolves to a real-looking ChEMBL target. The task-shaped tool
+over-fetches and slices, so it cannot make that mistake. A 1:1 wrapper is
+faithful to the API including where the API is wrong.
+
+**Raw responses are ambiguous about which field is canonical.** Asked for the
+experimental method of PDB 6LU7, variant B finds `exptl[].method` =
+`"X-RAY DIFFRACTION"` and `rcsb_entry_info.experimental_method` = `"X-ray"` in
+the same record, with nothing to say which one a consumer should use. Shaping
+picks one and is therefore answerable.
+
+### Reproducing
+
+Replay runs against a committed response cache (`evals/cache`, 1.7 MB), so the
+numbers above reproduce offline and deterministically:
+
+```bash
+uv run python evals/run.py --variant all
+```
+
+That cache is not a convenience. ChEMBL returns intermittent 500s, and an
+earlier run scored variant B at 21/25 purely because the API was unwell
+mid-pass. Tasks whose path hits an upstream error are now counted separately
+and excluded from the ratio rather than charged to the tool design — a
+benchmark against live flaky endpoints measures their uptime, not your design.
+
+### What this does not measure
+
+Success rate. Replay follows a known-correct path, so it establishes what the
+answer *costs* and whether it *survives* the tools; it says nothing about
+whether a model finds the path. `evals/live.py` does that — it hands a model the
+variant's tool definitions and lets it solve the task — and needs
+`ANTHROPIC_API_KEY`:
+
+```bash
+uv run python evals/run.py --mode live --variant C,D
+```
+
+It is written and unrun. Until it runs, treat the C→D comparison as untested
+and the rest as a measurement of context cost rather than of accuracy.
 
 ## The design rules
 
@@ -28,17 +103,22 @@ here. Against the raw APIs it is a name resolution, a target lookup, a filtered
 activity query, and a sort by the right potency field.
 
 **2. Responses carry decision fields only.**
-Measured on real records:
+Measured on real records, and end to end through the server:
 
-| Record | Raw | Shaped | Reduction |
+| | Raw | Shaped | Reduction |
 | --- | --- | --- | --- |
-| ChEMBL `activity` (one bioactivity row) | 1,516 chars / 47 fields | 173 chars / 6 fields | **8.8×** |
-| RCSB `entry` (one PDB structure) | 37,034 chars | 248 chars | **149×** |
+| ChEMBL `activity` (one row) | 1,516 chars / 47 fields | 173 chars / 6 fields | **8.8×** |
+| RCSB `entry` (one structure) | 37,034 chars | 248 chars | **149×** |
+| `get_structures`, 3 results | 65,965 chars | 1,623 chars | **40.6×** |
+| `find_ligands`, 5 results | 11,781 chars | 1,267 chars | **9.3×** |
 
 An agent ranking inhibitors reads the compound id, the structure, the assay
 type, the value, the units, and the potency. The other 41 fields cost context
 and earn nothing. This is not cosmetic: it decides how many rows fit in a turn,
 which decides whether the question can be answered at all.
+
+`build_server(shaping=False)` turns this off, which is how the benchmark
+attributes a difference to the projection alone.
 
 **3. Truncation is always stated.**
 Every list result reports `showing` and `total_matches`. A model handed 25 of
@@ -49,7 +129,7 @@ ChEMBL's filtered queries fail intermittently (see [Field notes](#field-notes)).
 When that happens a tool returns what it has plus a stated reason, rather than
 failing the call and leaving the model to guess.
 
-## The tools
+## The tools (variant C/D)
 
 | Tool | Purpose |
 | --- | --- |
@@ -140,16 +220,13 @@ measuring someone else's load.
 
 ## Status
 
-Working and tested: the server, its three clients, the shaping layer, the
-cache and rate limiter, and 39 tests that run without network access.
+Working, tested, and measured: both servers, the three clients, the shaping
+layer, the cache and rate limiter, the 25-task benchmark, and its replay
+driver. 39 unit tests run without network access; the benchmark replays from a
+committed cache.
 
-Not yet built: the benchmark itself (`evals/`). The four configurations it will
-compare are tool count (6 vs 22 granular), response shaping on and off, and
-schema documentation on and off — measuring task success, tool calls per task,
-input tokens, and cost across a set of drug-discovery questions with verifiable
-answers. Until that runs, the four design rules above are reasoned arguments
-with measured *size* evidence but no measured *outcome* evidence, and the README
-will not claim otherwise.
+Unrun: `evals/live.py`, the model-driven driver that would turn "derivable"
+into a success rate. The README does not claim a success rate until it runs.
 
 ## Licence
 

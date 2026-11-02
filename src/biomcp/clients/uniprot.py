@@ -23,6 +23,9 @@ BASE_URL = "https://rest.uniprot.org"
 
 FIELDS = "accession,id,protein_name,gene_primary,organism_name"
 
+# See `resolve` -- size=1 is not the first row of size=2 at this API.
+MIN_FETCH = 5
+
 
 class UniprotClient(ApiClient):
     def __init__(self, **kwargs: Any):
@@ -49,6 +52,11 @@ class UniprotClient(ApiClient):
         if reviewed_only:
             clauses.append("reviewed:true")
 
+        # Never ask for size=1. UniProt returns a *different* top hit at
+        # size=1 than at size>=2: for "EGFR AND organism_id:9606 AND
+        # reviewed:true", size=1 yields CBLC while size=2 yields EGFR first.
+        # Over-fetch and slice so the ranking is the one the archive means.
+        fetch = max(min(limit, 25), MIN_FETCH)
         body = await self.request_json(
             "GET",
             "/uniprotkb/search",
@@ -56,20 +64,7 @@ class UniprotClient(ApiClient):
                 "query": " AND ".join(clauses),
                 "fields": FIELDS,
                 "format": "json",
-                "size": min(limit, 25),
+                "size": fetch,
             },
         )
-        return [_shape(r) for r in (body or {}).get("results") or []]
-
-
-def _shape(raw: dict[str, Any]) -> dict[str, Any]:
-    genes = raw.get("genes") or []
-    gene = (genes[0].get("geneName") or {}).get("value") if genes else None
-    description = raw.get("proteinDescription") or {}
-    recommended = (description.get("recommendedName") or {}).get("fullName") or {}
-    return {
-        "uniprot": raw.get("primaryAccession"),
-        "gene": gene,
-        "protein_name": recommended.get("value"),
-        "organism": (raw.get("organism") or {}).get("scientificName"),
-    }
+        return ((body or {}).get("results") or [])[:limit]
