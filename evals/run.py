@@ -57,15 +57,27 @@ async def main() -> int:
     parser.add_argument("--out", default=str(ROOT / "results"))
     parser.add_argument(
         "--cache-dir",
-        default=str(ROOT / "cache"),
-        help="committed response cache; makes replay reproducible offline",
+        default=None,
+        help=(
+            "response cache directory. Defaults to the committed fixture set "
+            "for replay, and to a scratch directory for live runs."
+        ),
     )
     args = parser.parse_args()
 
-    # A pinned cache is what makes this a controlled experiment. ChEMBL fails
+    # A pinned cache is what makes replay a controlled experiment. ChEMBL fails
     # intermittently (see README field notes), so a run against live endpoints
     # measures their uptime as much as our tool design.
-    cache = ResponseCache(args.cache_dir, ttl=None)
+    #
+    # Live runs get a *separate*, gitignored cache. The model chooses its own
+    # arguments, so it fetches things no oracle path asks for; letting it write
+    # into the committed fixture set would mean the fixtures were no longer the
+    # curated, regenerable set `scripts/refresh_cache.py` produces -- it grew
+    # from 66 entries to 323 before this was separated out.
+    cache_dir = args.cache_dir or (
+        ROOT / "cache" if args.mode == "replay" else ROOT / ".live-cache"
+    )
+    cache = ResponseCache(cache_dir, ttl=None)
 
     tasks = yaml.safe_load(Path(args.tasks).read_text())
     chosen = (

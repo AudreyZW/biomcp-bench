@@ -5,3 +5,7 @@ __pycache__/
 .ruff_cache/
 # results are committed on purpose: they are the finding
 !evals/results/.gitkeep
+
+# Live-run scratch cache. The model picks its own arguments, so this fills with
+# requests no oracle path makes; evals/cache stays the curated fixture set.
+evals/.live-cache/

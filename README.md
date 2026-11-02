@@ -82,8 +82,8 @@ list from a small result set.
 
 ### Reproducing
 
-Replay runs against a committed response cache (`evals/cache`, 1.7 MB), so the
-numbers above reproduce offline and deterministically:
+Replay runs against a committed response cache (`evals/cache`, 66 entries,
+1.8 MB), so the numbers above reproduce offline and deterministically:
 
 ```bash
 uv run python evals/run.py --variant all
@@ -91,9 +91,15 @@ uv run python evals/run.py --variant all
 
 That cache is not a convenience. ChEMBL returns intermittent 500s, and an
 earlier run scored variant B at 21/25 purely because the API was unwell
-mid-pass. Tasks whose path hits an upstream error are now counted separately
-and excluded from the ratio rather than charged to the tool design — a
-benchmark against live flaky endpoints measures their uptime, not your design.
+mid-pass. Tasks whose path hits an upstream error are counted separately and
+excluded from the ratio rather than charged to the tool design — a benchmark
+against live flaky endpoints measures their uptime, not your design.
+
+Regenerate it with `uv run python scripts/refresh_cache.py`, the only script
+that goes online. Live runs write to a separate, gitignored `evals/.live-cache`
+instead: the model chooses its own arguments and fetches things no oracle path
+asks for, and letting that into the committed fixtures would stop them being
+the curated set the refresh script reproduces.
 
 ### Success rate: a local model, and a null result
 
