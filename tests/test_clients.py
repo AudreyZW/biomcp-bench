@@ -170,8 +170,48 @@ class TestResponseCache:
     def test_corrupt_entry_is_a_miss_not_a_crash(self, tmp_path):
         cache = ResponseCache(tmp_path)
         cache.put("ns", {"k": 1}, "fine")
-        next(tmp_path.glob("*.json")).write_text("{not json")
+        # Truncated gzip, which is what a crash mid-write would leave.
+        next(tmp_path.glob("*.json.gz")).write_bytes(b"\x1f\x8b not really gzip")
         assert cache.get("ns", {"k": 1}) is None
+
+    def test_entries_are_gzipped(self, tmp_path):
+        cache = ResponseCache(tmp_path)
+        cache.put("ns", {"k": 1}, {"v": "x" * 5000})
+        written = list(tmp_path.glob("*.json.gz"))
+        assert len(written) == 1
+        # Compressed, so far smaller than the payload it holds.
+        assert written[0].stat().st_size < 1000
+
+    def test_reads_a_legacy_plain_json_entry(self, tmp_path):
+        """An older cache directory keeps working without a migration."""
+        import json as _json
+
+        from biomcp.cache import cache_key
+
+        key = cache_key("ns", {"k": 1})
+        (tmp_path / f"{key}.json").write_text(
+            _json.dumps({"stored_at": 10**12, "body": "legacy"})
+        )
+        assert ResponseCache(tmp_path, ttl=None).get("ns", {"k": 1}) == "legacy"
+
+    def test_gzipped_entry_wins_over_legacy(self, tmp_path):
+        import json as _json
+
+        from biomcp.cache import cache_key
+
+        cache = ResponseCache(tmp_path, ttl=None)
+        key = cache_key("ns", {"k": 1})
+        (tmp_path / f"{key}.json").write_text(
+            _json.dumps({"stored_at": 10**12, "body": "legacy"})
+        )
+        cache.put("ns", {"k": 1}, "current")
+        assert cache.get("ns", {"k": 1}) == "current"
+
+    def test_round_trips_a_large_payload(self, tmp_path):
+        cache = ResponseCache(tmp_path, ttl=None)
+        payload = {"rows": [{"i": i, "pad": "y" * 200} for i in range(500)]}
+        cache.put("ns", {"k": "big"}, payload)
+        assert cache.get("ns", {"k": "big"}) == payload
 
 
 class TestPartialFailureIsReported:
@@ -277,3 +317,50 @@ class TestBackoff:
                 await client.request_json("GET", "/q")
         assert slept == [0.25, 0.5, 1.0]
         await client.aclose()
+
+
+class TestNegativeCaching:
+    """A cached `None` must be distinguishable from a cache miss.
+
+    RCSB answers a zero-result search with 204 No Content, which is stored as
+    `None` -- a real answer meaning "nothing matched". While `request_json`
+    tested `if cached is not None`, every such search re-requested forever;
+    that was six live calls on each supposedly-offline replay run.
+    """
+
+    def test_lookup_distinguishes_a_cached_none_from_a_miss(self, tmp_path):
+        from biomcp.cache import MISSING
+
+        cache = ResponseCache(tmp_path, ttl=None)
+        assert cache.lookup("ns", {"k": 1}) is MISSING
+        cache.put("ns", {"k": 1}, None)
+        assert cache.lookup("ns", {"k": 1}) is None
+
+    def test_get_collapses_both_to_none(self, tmp_path):
+        cache = ResponseCache(tmp_path, ttl=None)
+        cache.put("ns", {"k": 1}, None)
+        assert cache.get("ns", {"k": 1}) is None
+        assert cache.get("ns", {"k": 2}) is None
+
+    @respx.mock
+    async def test_a_204_is_requested_only_once(self, client):
+        route = respx.get("https://example.test/empty").mock(return_value=httpx.Response(204))
+        assert await client.request_json("GET", "/empty") is None
+        assert await client.request_json("GET", "/empty") is None
+        assert route.call_count == 1, "the empty result should have been cached"
+
+    @respx.mock
+    async def test_a_404_is_not_cached(self, client):
+        # A 404 returns before the cache write: a missing record may appear
+        # later, and nothing is stored to say otherwise.
+        route = respx.get("https://example.test/gone").mock(return_value=httpx.Response(404))
+        await client.request_json("GET", "/gone")
+        await client.request_json("GET", "/gone")
+        assert route.call_count == 2
+
+    def test_expired_none_entry_reads_as_a_miss(self, tmp_path):
+        from biomcp.cache import MISSING
+
+        cache = ResponseCache(tmp_path, ttl=-1)
+        cache.put("ns", {"k": 1}, None)
+        assert cache.lookup("ns", {"k": 1}) is MISSING

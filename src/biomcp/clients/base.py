@@ -11,7 +11,7 @@ from typing import Any
 
 import httpx
 
-from ..cache import RateLimiter, ResponseCache
+from ..cache import MISSING, RateLimiter, ResponseCache
 
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 
@@ -85,8 +85,10 @@ class ApiClient:
     ) -> Any:
         """GET/POST returning parsed JSON, served from cache when possible."""
         cache_payload = {"method": method, "path": path, "params": params, "body": json_body}
-        cached = self.cache.get(self.namespace, cache_payload)
-        if cached is not None:
+        cached = self.cache.lookup(self.namespace, cache_payload)
+        if cached is not MISSING:
+            # `None` is a real cached answer here -- RCSB returns 204 for a
+            # search that matched nothing -- so this must not test truthiness.
             return cached
 
         last_error: Exception | None = None
