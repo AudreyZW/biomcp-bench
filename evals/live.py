@@ -39,19 +39,29 @@ async def run_live(
     task: dict[str, Any],
     variant: Any,
     tool_definitions: list[dict[str, Any]],
+    client: Any | None = None,
 ) -> TaskResult:
-    from anthropic import AsyncAnthropic
+    """Drive one task with a model.
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise RuntimeError("ANTHROPIC_API_KEY is not set; use --mode replay")
+    `client` is injectable so the agent loop itself can be tested without an
+    API key or a network call -- the loop is the part with the bugs (turn
+    accounting, tool-result plumbing, answer extraction), and it would
+    otherwise be the only untested code in the repository.
+    """
+    if client is None:
+        from anthropic import AsyncAnthropic
 
-    client = AsyncAnthropic()
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise RuntimeError("ANTHROPIC_API_KEY is not set; use --mode replay")
+        client = AsyncAnthropic()
     result = TaskResult(task_id=task["id"], variant=variant.name)
     messages: list[dict[str, Any]] = [{"role": "user", "content": task["question"]}]
     started = time.monotonic()
     answer: str | None = None
+    turns = 0
 
     for _ in range(MAX_TURNS):
+        turns += 1
         response = await client.messages.create(
             model=MODEL,
             max_tokens=2048,
@@ -59,8 +69,7 @@ async def run_live(
             tools=tool_definitions,
             messages=messages,
         )
-        # Real counts from the API, not estimates.
-        result.definition_tokens = result.definition_tokens or 0
+        # Real counts from the API, not the character estimates replay uses.
         result.response_tokens += response.usage.input_tokens + response.usage.output_tokens
 
         tool_uses = [b for b in response.content if getattr(b, "type", "") == "tool_use"]
@@ -78,7 +87,7 @@ async def run_live(
                 payload = "".join(
                     getattr(c, "text", "") for c in (getattr(out, "content", None) or [])
                 )
-            except Exception as exc:  # noqa: BLE001 - reported to the model
+            except Exception as exc:
                 payload = json.dumps({"error": f"{type(exc).__name__}: {exc}"})
                 result.errors.append(f"{use.name}: {exc}")
             tool_results.append(
@@ -88,6 +97,8 @@ async def run_live(
 
     result.wall_seconds = time.monotonic() - started
     result.extracted = answer
+    if answer is None and turns >= MAX_TURNS:
+        result.errors.append(f"hit the {MAX_TURNS}-turn ceiling without answering")
 
     spec = task.get("grade") or {}
     if answer is None:

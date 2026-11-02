@@ -19,6 +19,7 @@ dev = [
     "pytest==8.4.2",
     "pytest-asyncio==1.3.0",
     "respx==0.22.0",
+    "ruff==0.14.2",
 ]
 
 [project.scripts]
@@ -31,6 +32,36 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/biomcp"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/biomcp/py.typed" = "biomcp/py.typed"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 96
+target-version = "py312"
+src = ["src", "evals", "scripts", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle
+    "F",      # pyflakes
+    "I",      # import sorting
+    "UP",     # pyupgrade
+    "B",      # bugbear
+    "SIM",    # simplify
+    "RUF",    # ruff-specific
+    "ASYNC",  # async pitfalls
+]
+ignore = [
+    "B008",    # Depends-style defaults are how MCP tool schemas are declared
+    "SIM105",  # contextlib.suppress is less readable than a narrow except here
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Benchmark entry points insert sys.path before importing local modules.
+"evals/run.py" = ["E402"]
+"scripts/refresh_cache.py" = ["E402"]
+"tests/test_shaping.py" = ["E402"]

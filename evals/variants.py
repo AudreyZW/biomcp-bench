@@ -33,14 +33,26 @@ class Variant:
 
     @property
     def label(self) -> str:
-        return f"{self.name} ({self.family}, shaping={'on' if self.shaping else 'off'}, docs={'on' if self.schema_docs else 'off'})"
+        shaping = "on" if self.shaping else "off"
+        docs = "on" if self.schema_docs else "off"
+        return f"{self.name} ({self.family}, shaping={shaping}, docs={docs})"
 
 
 VARIANTS: tuple[Variant, ...] = (
-    Variant("A", "granular", shaping=False, schema_docs=False, isolates="baseline: 1:1 API wrappers"),
+    Variant(
+        "A", "granular", shaping=False, schema_docs=False, isolates="baseline: 1:1 API wrappers"
+    ),
     Variant("B", "task_shaped", shaping=False, schema_docs=False, isolates="vs A: tool count"),
-    Variant("C", "task_shaped", shaping=True, schema_docs=False, isolates="vs B: response shaping"),
-    Variant("D", "task_shaped", shaping=True, schema_docs=True, isolates="vs C: schema documentation"),
+    Variant(
+        "C", "task_shaped", shaping=True, schema_docs=False, isolates="vs B: response shaping"
+    ),
+    Variant(
+        "D",
+        "task_shaped",
+        shaping=True,
+        schema_docs=True,
+        isolates="vs C: schema documentation",
+    ),
 )
 
 BY_NAME = {v.name: v for v in VARIANTS}
@@ -74,7 +86,5 @@ def render_tool_definitions(tools: list[Any], variant: Variant) -> list[dict[str
             # Keep the first sentence only: enough to know what the tool is,
             # without the usage guidance that variant D pays for.
             description = description.split(".")[0].strip()
-        rendered.append(
-            {"name": tool.name, "description": description, "input_schema": schema}
-        )
+        rendered.append({"name": tool.name, "description": description, "input_schema": schema})
     return rendered

@@ -45,15 +45,32 @@ class ApiClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
+    async def __aenter__(self) -> ApiClient:
+        return self
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        await self.aclose()
+
     def _url(self, path: str) -> str:
         """Absolute paths pass through, so one client can span sibling hosts.
 
         RCSB splits search and data across two hostnames; carrying one client
-        keeps the shared cache and rate limiter covering both.
+        keeps one cache, one limiter and one connection pool across both.
         """
         if path.startswith(("http://", "https://")):
             return path
         return f"{self.base_url}/{path.lstrip('/')}"
+
+    async def request_text(self, path: str) -> str:
+        """Fetch a body as text, throttled but never cached.
+
+        Coordinate files are megabytes; putting them in a content-addressed
+        JSON cache would be both wrong and ruinous for the cache directory.
+        """
+        await self.limiter.wait()
+        response = await self._client.get(self._url(path))
+        response.raise_for_status()
+        return response.text
 
     async def request_json(
         self,
@@ -86,9 +103,7 @@ class ApiClient:
                     # Must be checked before the empty-body case below: an
                     # error response often has no body at all, and treating
                     # that as "nothing matched" would silently swallow a 500.
-                    last_error = ApiError(
-                        f"{method} {path} -> {response.status_code}"
-                    )
+                    last_error = ApiError(f"{method} {path} -> {response.status_code}")
                 elif response.status_code == 204 or not response.content:
                     # RCSB answers a zero-result search with 204 No Content, so
                     # an empty body on a success status is a legitimate
@@ -109,4 +124,6 @@ class ApiClient:
             if attempt < self.max_attempts - 1:
                 await asyncio.sleep(0.5 * (2**attempt))
 
-        raise ApiError(f"{method} {path} failed after {self.max_attempts} attempts: {last_error}")
+        raise ApiError(
+            f"{method} {path} failed after {self.max_attempts} attempts: {last_error}"
+        )

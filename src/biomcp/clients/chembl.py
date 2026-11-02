@@ -9,6 +9,10 @@ API notes worth knowing before changing this file:
   query, which is stable. Both were verified against the live API.
 * Potency should be compared on `pchembl_value`, never on `standard_value`,
   which is reported in mixed units across assays.
+* `standard_type` is case-sensitive and a wrong case fails *silently*: at the
+  time of writing `standard_type=IC50` matches 26,600 rows for CHEMBL203 while
+  `ic50` matches 0, both with HTTP 200. `canonical_assay_type` normalises the
+  common ones so a lower-case argument does not look like "no data".
 
 Methods here return upstream records unchanged. Projection happens at the
 server boundary so that `evals/` can serve the same data shaped or raw and
@@ -22,6 +26,36 @@ from typing import Any
 from .base import ApiClient, ApiError
 
 BASE_URL = "https://www.ebi.ac.uk/chembl/api/data"
+
+# ChEMBL's own spelling of the assay types worth filtering on. Keyed by the
+# upper-case form so any casing a caller supplies can be mapped back.
+_CANONICAL_ASSAY_TYPES = {
+    t.upper(): t
+    for t in (
+        "IC50",
+        "EC50",
+        "AC50",
+        "GI50",
+        "Ki",
+        "Kd",
+        "MIC",
+        "Potency",
+        "Activity",
+        "Inhibition",
+    )
+}
+
+
+def canonical_assay_type(assay_type: str) -> tuple[str, bool]:
+    """Map any casing of a known assay type to ChEMBL's spelling.
+
+    Returns the value to send and whether it was recognised. Unknown types are
+    passed through untouched -- ChEMBL has hundreds and this list covers only
+    the common ones -- but the caller is told, so it can warn instead of
+    reporting an empty result as though it were an absence of data.
+    """
+    canonical = _CANONICAL_ASSAY_TYPES.get(assay_type.strip().upper())
+    return (canonical, True) if canonical else (assay_type, False)
 
 
 class ChemblClient(ApiClient):
@@ -39,9 +73,7 @@ class ChemblClient(ApiClient):
         except ApiError:
             body = None  # documented upstream flakiness; fall through
         if not body or not body.get("targets"):
-            body = await self._get(
-                "target", {"pref_name__icontains": query, "limit": limit}
-            )
+            body = await self._get("target", {"pref_name__icontains": query, "limit": limit})
         return (body or {}).get("targets") or []
 
     async def target_for_accession(self, accession: str) -> dict[str, Any] | None:
@@ -51,10 +83,13 @@ class ChemblClient(ApiClient):
         queries that fails intermittently upstream, so `ApiError` is allowed to
         propagate and callers degrade rather than retrying forever here.
         """
-        body = await self._get(
-            "target",
-            {"target_components__accession": accession, "limit": 1},
-        ) or {}
+        body = (
+            await self._get(
+                "target",
+                {"target_components__accession": accession, "limit": 1},
+            )
+            or {}
+        )
         targets = body.get("targets") or []
         return targets[0] if targets else None
 
@@ -78,7 +113,7 @@ class ChemblClient(ApiClient):
             "pchembl_value__isnull": "false",
         }
         if assay_type:
-            params["standard_type"] = assay_type
+            params["standard_type"] = canonical_assay_type(assay_type)[0]
         if min_potency is not None:
             params["pchembl_value__gte"] = min_potency
         body = await self._get("activity", params) or {}
@@ -89,10 +124,13 @@ class ChemblClient(ApiClient):
     async def molecules(self, chembl_ids: list[str]) -> list[dict[str, Any]]:
         if not chembl_ids:
             return []
-        body = await self._get(
-            "molecule",
-            {"molecule_chembl_id__in": ",".join(chembl_ids), "limit": len(chembl_ids)},
-        ) or {}
+        body = (
+            await self._get(
+                "molecule",
+                {"molecule_chembl_id__in": ",".join(chembl_ids), "limit": len(chembl_ids)},
+            )
+            or {}
+        )
         return body.get("molecules") or []
 
     async def similar_molecules(
@@ -100,11 +138,14 @@ class ChemblClient(ApiClient):
     ) -> tuple[list[dict[str, Any]], int]:
         """Tanimoto similarity search. `threshold` is a percentage, 40-100."""
         threshold = max(40, min(100, int(threshold)))
-        body = await self.request_json(
-            "GET",
-            f"similarity/{smiles}/{threshold}",
-            params={"format": "json", "limit": min(limit, 100)},
-        ) or {}
+        body = (
+            await self.request_json(
+                "GET",
+                f"similarity/{smiles}/{threshold}",
+                params={"format": "json", "limit": min(limit, 100)},
+            )
+            or {}
+        )
         molecules = body.get("molecules") or []
         total = int((body.get("page_meta") or {}).get("total_count") or len(molecules))
         return molecules, total

@@ -27,8 +27,9 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 CHARS_PER_TOKEN = 4  # rough; replay reports estimates and labels them as such
 
@@ -145,7 +146,9 @@ def grade(responses: list[Any], spec: dict[str, Any]) -> tuple[bool, Any]:
     return True, value
 
 
-async def run_replay(server: Any, task: dict[str, Any], variant: Any, definition_tokens: int) -> TaskResult:
+async def run_replay(
+    server: Any, task: dict[str, Any], variant: Any, definition_tokens: int
+) -> TaskResult:
     """Execute a task's oracle path and measure it."""
     result = TaskResult(task_id=task["id"], variant=variant.name)
     result.definition_tokens = definition_tokens
@@ -165,10 +168,12 @@ async def run_replay(server: Any, task: dict[str, Any], variant: Any, definition
             break
         try:
             raw = await server.call_tool(step["tool"], args)
-        except Exception as exc:  # noqa: BLE001 - recorded, not raised
+        except Exception as exc:
             result.errors.append(f"{step['tool']}: {type(exc).__name__}: {exc}")
             break
-        text = "".join(getattr(block, "text", "") for block in (getattr(raw, "content", None) or []))
+        text = "".join(
+            getattr(block, "text", "") for block in (getattr(raw, "content", None) or [])
+        )
         result.calls += 1
         result.response_tokens += estimate_tokens(text)
         try:

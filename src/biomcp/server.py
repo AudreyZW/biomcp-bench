@@ -23,17 +23,16 @@ benchmark attributes a difference to the shaping alone.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated, Any, Callable
+from typing import Annotated, Any
 
 from mcp.server import MCPServer
 from pydantic import Field
 
-from .cache import RateLimiter, ResponseCache
-from .clients.base import ApiError
-from .clients.chembl import ChemblClient
-from .clients.pdb import PdbClient
-from .clients.uniprot import UniprotClient
+from .cache import ResponseCache
+from .clients import ApiError, ClientBundle, client_lifespan
+from .clients.chembl import canonical_assay_type
 from .shaping import (
     shape_activity,
     shape_chemical_component,
@@ -71,13 +70,14 @@ def _projector(shaping: bool, fn: Callable[[dict], dict]) -> Callable[[Any], Any
     return lambda record: fn(record) if isinstance(record, dict) else record
 
 
-def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MCPServer:
+def build_server(
+    shaping: bool = True,
+    cache: ResponseCache | None = None,
+    bundle: ClientBundle | None = None,
+) -> MCPServer:
     config = ServerConfig(shaping=shaping)
-    cache = cache if cache is not None else ResponseCache()
-    limiter = RateLimiter(min_interval=0.2)
-    uniprot = UniprotClient(cache=cache, limiter=limiter)
-    pdb = PdbClient(cache=cache, limiter=limiter)
-    chembl = ChemblClient(cache=cache, limiter=limiter)
+    clients = bundle if bundle is not None else ClientBundle.build(cache)
+    uniprot, pdb, chembl = clients.uniprot, clients.pdb, clients.chembl
 
     as_uniprot = _projector(config.shaping, shape_uniprot_entry)
     as_target = _projector(config.shaping, shape_target)
@@ -86,7 +86,12 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
     as_entry = _projector(config.shaping, shape_pdb_entry)
     as_ligand = _projector(config.shaping, shape_chemical_component)
 
-    mcp = MCPServer(name="biomcp", version="0.1.0", instructions=INSTRUCTIONS)
+    mcp = MCPServer(
+        name="biomcp",
+        version="0.1.0",
+        instructions=INSTRUCTIONS,
+        lifespan=client_lifespan(clients),
+    )
 
     @mcp.tool(
         description=(
@@ -114,16 +119,21 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
         async def annotate(raw: dict[str, Any]) -> dict[str, Any]:
             accession = raw.get("primaryAccession")
             entry = dict(as_uniprot(raw))
-            _, total = await pdb.structures_for_uniprot(accession, rows=1)
+            _, total, _ = await pdb.structures_for_uniprot(accession, rows=1)
             entry["structure_count"] = total
             try:
                 target = await chembl.target_for_accession(accession)
                 entry["chembl_target"] = (target or {}).get("target_chembl_id")
+                if target:
+                    # Carry ChEMBL's own name for the target so the join is
+                    # checkable. A wrong accession resolves to a real-looking
+                    # target id (see the README on UniProt's size=1 behaviour),
+                    # and the id alone gives a reader no way to notice.
+                    detail = as_target(target)
+                    entry["chembl_target_name"] = detail.get("name") or detail.get("pref_name")
             except ApiError:
                 entry["chembl_target"] = None
-                notes.append(
-                    f"ChEMBL lookup for {accession} failed; retry find_ligands later."
-                )
+                notes.append(f"ChEMBL lookup for {accession} failed; retry find_ligands later.")
             return entry
 
         annotated = await asyncio.gather(*(annotate(m) for m in raw_matches))
@@ -147,14 +157,19 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
         ] = False,
         limit: Annotated[int, Field(ge=1, le=50)] = 10,
     ) -> dict[str, Any]:
-        rows, total = await pdb.structures_for_uniprot(
+        rows, total, failed = await pdb.structures_for_uniprot(
             uniprot_accession, rows=limit, require_ligand=require_ligand
         )
-        return {
+        payload: dict[str, Any] = {
             "structures": [as_entry(r) for r in rows],
             "showing": len(rows),
             "total_matches": total,
         }
+        if failed:
+            # Rule 4: a short list because the Data API dropped some entries is
+            # not the same as a short list because there were only that many.
+            payload["unavailable"] = failed
+        return payload
 
     @mcp.tool(
         description=(
@@ -172,10 +187,19 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
         ligand_ids = (raw.get("rcsb_entry_container_identifiers") or {}).get(
             "non_polymer_entity_ids"
         ) or []
-        ligands = await asyncio.gather(*(pdb.ligand(i) for i in ligand_ids))
+        fetched = await asyncio.gather(
+            *(pdb.ligand(i) for i in ligand_ids), return_exceptions=True
+        )
         entry = as_entry(raw)
         payload = dict(entry) if isinstance(entry, dict) else {"entry": entry}
-        payload["ligands"] = [as_ligand(lig) for lig in ligands if lig]
+        payload["ligands"] = [as_ligand(lig) for lig in fetched if isinstance(lig, dict)]
+        missing = [
+            pid
+            for pid, lig in zip(ligand_ids, fetched, strict=True)
+            if not isinstance(lig, dict)
+        ]
+        if missing:
+            payload["ligands_unavailable"] = missing
         return payload
 
     @mcp.tool(
@@ -189,7 +213,13 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
             str, Field(description="ChEMBL target id ('CHEMBL203') or UniProt accession")
         ],
         assay_type: Annotated[
-            str | None, Field(description="Restrict to one assay, e.g. 'IC50', 'Ki', 'Kd'")
+            str | None,
+            Field(
+                description=(
+                    "Restrict to one assay type, e.g. 'IC50', 'Ki', 'Kd', 'EC50'. "
+                    "Casing is normalised for you."
+                )
+            ),
         ] = None,
         min_potency: Annotated[
             float | None, Field(description="Minimum pChEMBL value; 8 is ~10 nM")
@@ -218,13 +248,26 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
                 "error": "ChEMBL bioactivity query is unavailable right now.",
                 "retry": "Call again shortly; the target id above is correct.",
             }
-        return {
+        payload: dict[str, Any] = {
             "target": target_id,
             "ligands": [as_activity(r) for r in rows],
             "showing": len(rows),
             "total_matches": total,
             "potency_scale": "pChEMBL (-log10 molar); higher is more potent",
         }
+        if assay_type and not rows:
+            # An empty result for an assay filter is ambiguous: no such data,
+            # or a filter ChEMBL did not recognise? Say which, because the API
+            # answers both with an empty list and HTTP 200.
+            canonical, known = canonical_assay_type(assay_type)
+            payload["notes"] = (
+                f"No rows with assay_type={canonical!r}."
+                if known
+                else f"assay_type={assay_type!r} is not one of the assay types "
+                "this tool normalises; check the spelling, as ChEMBL matches it "
+                "case-sensitively and returns nothing rather than an error."
+            )
+        return payload
 
     @mcp.tool(
         description="Physicochemical properties and clinical phase for compounds, side by side."
@@ -265,13 +308,8 @@ def build_server(shaping: bool = True, cache: ResponseCache | None = None) -> MC
         mime_type="chemical/x-mmcif",
     )
     async def structure_file(pdb_id: str) -> str:
-        response = await pdb._client.get(
-            f"https://files.rcsb.org/download/{pdb_id.upper()}.cif"
-        )
-        response.raise_for_status()
-        return response.text
+        return await pdb.coordinate_file(pdb_id)
 
-    mcp._biomcp_clients = {"uniprot": uniprot, "pdb": pdb, "chembl": chembl}  # type: ignore[attr-defined]
     return mcp
 
 

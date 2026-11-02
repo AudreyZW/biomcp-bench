@@ -27,7 +27,9 @@ def cache_key(namespace: str, payload: Any) -> str:
 class ResponseCache:
     """Content-addressed JSON cache. Safe to share between processes."""
 
-    def __init__(self, directory: Path | str | None = None, ttl: float | None = DEFAULT_TTL_SECONDS):
+    def __init__(
+        self, directory: Path | str | None = None, ttl: float | None = DEFAULT_TTL_SECONDS
+    ):
         self.directory = Path(directory) if directory else DEFAULT_CACHE_DIR
         self.ttl = ttl
         self.directory.mkdir(parents=True, exist_ok=True)

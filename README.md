@@ -21,8 +21,8 @@ second server that wraps the same three APIs one-to-one instead, and a harness
 that varies the design and measures what changes.
 
 The short version: across 25 drug-discovery questions, the task-shaped server
-answers them in **772 tokens** of context where the 1:1 wrapper needs
-**28,285** — 37× less — and it gets four more of them right.
+answers them in **777 tokens** of context where the 1:1 wrapper needs
+**28,285** — 36× less — and it gets four more of them right.
 
 ## Results
 
@@ -32,23 +32,27 @@ Four configurations, one knob changed at a time:
 | | tools | defn tokens | calls | response tokens | total | answer derivable |
 | --- | --- | --- | --- | --- | --- | --- |
 | **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 26,364 | **28,285** | 21/25 |
-| **B** task-shaped, raw | 6 | 671 | 1.1 | 3,322 | 3,993 | 24/25 |
-| **C** task-shaped, shaped | 6 | 671 | 1.1 | 101 | **772** | 25/25 |
-| **D** C + documented schemas | 6 | 894 | 1.1 | 101 | 995 | 25/25 |
+| **B** task-shaped, raw | 6 | 671 | 1.1 | 3,327 | 3,998 | 24/25 |
+| **C** task-shaped, shaped | 6 | 671 | 1.1 | 106 | **777** | 25/25 |
+| **D** C + documented schemas | 6 | 905 | 1.1 | 106 | 1,011 | 25/25 |
 
 Reading the comparisons:
 
 - **A → B (tool count).** Collapsing 22 endpoint wrappers into 6 task-shaped
   tools cuts definition overhead 2.9× and response volume 7.9×. Definitions are
   paid on every request before any data comes back.
-- **B → C (response shaping).** Projection alone cuts response volume **32.9×**,
-  from 3,322 tokens to 101. This is the single largest effect, and it is the
+- **B → C (response shaping).** Projection alone cuts response volume **31×**,
+  from 3,327 tokens to 106. This is the single largest effect, and it is the
   cheapest to implement.
-- **C → D (schema documentation).** Costs 223 tokens and changes nothing in
+- **C → D (schema documentation).** Costs 234 tokens and changes nothing in
   replay, which is expected: documentation affects which tool a *model* picks,
   and replay follows a fixed path. Isolating it needs `--mode live`.
 
-### Two things shaping bought that were not about size
+Token counts are characters ÷ 4. JSON tokenises worse than prose, so these are
+if anything conservative for the raw variants — the real gap is likely wider,
+not narrower.
+
+### Three things the design bought that were not about size
 
 **The thin wrapper inherits upstream bugs.** UniProt's search returns a
 different top hit at `size=1` than at `size=2` — ask for one result for `EGFR`
@@ -64,6 +68,16 @@ experimental method of PDB 6LU7, variant B finds `exptl[].method` =
 `"X-RAY DIFFRACTION"` and `rcsb_entry_info.experimental_method` = `"X-ray"` in
 the same record, with nothing to say which one a consumer should use. Shaping
 picks one and is therefore answerable.
+
+**Silent-failure modes can be absorbed instead of passed on.** ChEMBL matches
+`standard_type` case-sensitively and answers a wrong casing with an empty list
+and HTTP 200: `IC50` matches 26,600 rows for CHEMBL203, `ic50` matches zero.
+A thin wrapper forwards that and the model sees "no data". `find_ligands`
+normalises the casing, and when a filter genuinely returns nothing it says so
+in a `notes` field rather than returning a bare empty list. Likewise
+`get_structures` reports an `unavailable` list when the Data API drops entries,
+because otherwise a short list from an outage is indistinguishable from a short
+list from a small result set.
 
 ### Reproducing
 
@@ -210,6 +224,12 @@ does not tell you:
 - **Rank potency on `pchembl_value`, never `standard_value`.** The latter is
   reported in mixed units across assays, so sorting on it silently compares
   nanomolar against micromolar.
+- **ChEMBL's `standard_type` is case-sensitive and fails silently.** `IC50`
+  matches 26,600 rows where `ic50` matches zero, both HTTP 200.
+- **UniProt's `size=1` is not the first row of `size=2`.** Asking for one hit
+  for `EGFR` returns CBLC; asking for two returns EGFR first. Over-fetch and
+  slice. A field-scoped query (`gene:EGFR`) is also more reliable than free
+  text, which ranks on relevance rather than identity.
 - **`nonpolymer_entity_count` is not "has a ligand".** PDB 6LU7, the famous
   SARS-CoV-2 main protease complex, reports zero non-polymer entities because
   its N3 inhibitor is modelled as a peptide-like polymer.
@@ -218,15 +238,37 @@ Neither API documents a rate limit. This client throttles anyway, because a
 benchmark that replays queries across four configurations should not be
 measuring someone else's load.
 
+## Development
+
+```bash
+uv sync --extra dev --extra evals
+uv run pytest -q                      # 169 tests, no network
+uv run ruff check . && uv run ruff format --check .
+uv run python evals/run.py --variant all
+uv run python scripts/smoke_stdio.py  # spawns the server, speaks MCP to it
+uv run python scripts/refresh_cache.py  # the only script that goes online
+```
+
+CI runs the lint, the format check, the tests and the benchmark on every push,
+so a change that moves the numbers above shows up as a failing build rather
+than a stale README.
+
+The suite needs no network. The offline integration tests monkeypatch httpx to
+raise, so a cache miss fails loudly instead of quietly becoming a live request
+— which matters when one of the three upstream services is unreliable.
+
 ## Status
 
 Working, tested, and measured: both servers, the three clients, the shaping
-layer, the cache and rate limiter, the 25-task benchmark, and its replay
-driver. 39 unit tests run without network access; the benchmark replays from a
-committed cache.
+layer, the cache and rate limiter, the 25-task benchmark and its replay driver.
+169 tests cover the projection functions, the transport layer's retry and
+empty-body handling, the benchmark's grading and alias resolution, the tools
+end to end against the committed cache, and the live agent loop via a scripted
+fake model.
 
-Unrun: `evals/live.py`, the model-driven driver that would turn "derivable"
-into a success rate. The README does not claim a success rate until it runs.
+Unrun: the live driver against a real model, which is what would turn
+"derivable" into a success rate. Its loop is tested; only the model calls are
+untried. The README claims no success rate until that runs.
 
 ## Licence
 

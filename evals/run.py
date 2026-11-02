@@ -16,21 +16,20 @@ import asyncio
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT.parent / "src"))
 
-import yaml  # noqa: E402
+import yaml
 
-from harness import estimate_tokens, run_replay  # noqa: E402
-from variants import BY_NAME, VARIANTS, render_tool_definitions  # noqa: E402
-
-from biomcp.cache import ResponseCache  # noqa: E402
-from biomcp.granular import build_granular_server  # noqa: E402
-from biomcp.server import build_server  # noqa: E402
+from biomcp.cache import ResponseCache
+from biomcp.granular import build_granular_server
+from biomcp.server import build_server
+from harness import estimate_tokens, run_replay
+from variants import BY_NAME, VARIANTS, render_tool_definitions
 
 
 def build_for(family: str, shaping: bool, cache):
@@ -94,7 +93,7 @@ async def main() -> int:
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     path = out_dir / f"{args.mode}-{stamp}.json"
     path.write_text(json.dumps({"mode": args.mode, "rows": rows}, indent=1))
 
@@ -127,7 +126,7 @@ def summarise(rows: list[dict], mode: str) -> None:
         api = sum(1 for r in group if r["status"] == "upstream")
         scored = hit + miss
         print(
-            f"{name:<9}{'22' if variant.family=='granular' else '6':>6}{defn:>10}"
+            f"{name:<9}{'22' if variant.family == 'granular' else '6':>6}{defn:>10}"
             f"{calls:>7.1f}{resp:>10.0f}{defn + resp:>9.0f}"
             f"{f'{hit}/{scored}':>12}{api:>10}"
         )

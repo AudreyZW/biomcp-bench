@@ -21,6 +21,7 @@ from .base import ApiClient
 
 SEARCH_URL = "https://search.rcsb.org"
 DATA_URL = "https://data.rcsb.org"
+FILES_URL = "https://files.rcsb.org"
 
 UNIPROT_ATTRIBUTE = (
     "rcsb_polymer_entity_container_identifiers"
@@ -64,27 +65,28 @@ class PdbClient(ApiClient):
         return ids, int(body.get("total_count") or 0)
 
     async def entry(self, pdb_id: str) -> dict[str, Any] | None:
-        body = await self.request_json(
-            "GET",
-            f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}"
-        )
+        body = await self.request_json("GET", f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}")
         return body or None
 
-    async def _entries(self, pdb_ids: list[str]) -> list[dict[str, Any]]:
-        # The Data API is one call per entry; the rate limiter still serialises
-        # them, but gathering keeps the code honest about the fan-out.
+    async def _entries(self, pdb_ids: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+        """Fetch entries concurrently, returning the ones that worked and the
+        ids that did not.
+
+        Returning the failures matters: the Data API is one call per entry, so
+        a partial outage silently shortens the result list. Rule 4 says say so,
+        and a caller cannot say so if this method has thrown the evidence away.
+        """
         results = await asyncio.gather(
             *(self.entry(i) for i in pdb_ids), return_exceptions=True
         )
-        return [r for r in results if isinstance(r, dict)]
-
-    async def search_text(self, query: str, *, rows: int = 10) -> list[dict[str, Any]]:
-        ids, _ = await self._search(
-            {"type": "terminal", "service": "full_text", "parameters": {"value": query}},
-            rows=rows,
-            sort_by_resolution=False,
-        )
-        return await self._entries(ids)
+        entries: list[dict[str, Any]] = []
+        failed: list[str] = []
+        for pdb_id, result in zip(pdb_ids, results, strict=True):
+            if isinstance(result, dict):
+                entries.append(result)
+            else:
+                failed.append(pdb_id)
+        return entries, failed
 
     async def structures_for_uniprot(
         self,
@@ -92,7 +94,7 @@ class PdbClient(ApiClient):
         *,
         rows: int = 10,
         require_ligand: bool = False,
-    ) -> tuple[list[dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int, list[str]]:
         """Structures for a UniProt accession, best-resolved first.
 
         This is the ChEMBL-to-PDB join: ChEMBL targets carry UniProt
@@ -101,16 +103,19 @@ class PdbClient(ApiClient):
         """
         nodes = [_terminal(UNIPROT_ATTRIBUTE, "exact_match", accession)]
         if require_ligand:
-            nodes.append(
-                _terminal("rcsb_entry_info.nonpolymer_entity_count", "greater", 0)
-            )
+            nodes.append(_terminal("rcsb_entry_info.nonpolymer_entity_count", "greater", 0))
         query = (
             nodes[0]
             if len(nodes) == 1
             else {"type": "group", "logical_operator": "and", "nodes": nodes}
         )
         ids, total = await self._search(query, rows=rows, sort_by_resolution=True)
-        return await self._entries(ids), total
+        entries, failed = await self._entries(ids)
+        return entries, total, failed
+
+    async def coordinate_file(self, pdb_id: str) -> str:
+        """mmCIF coordinates from the RCSB file service."""
+        return await self.request_text(f"{FILES_URL}/download/{pdb_id.upper()}.cif")
 
     async def ligand(self, ligand_id: str) -> dict[str, Any] | None:
         body = await self.request_json(

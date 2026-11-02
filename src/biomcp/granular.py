@@ -22,28 +22,29 @@ from typing import Any
 
 from mcp.server import MCPServer
 
-from .cache import RateLimiter, ResponseCache
+from .cache import ResponseCache
+from .clients import ClientBundle, client_lifespan
 from .clients.chembl import BASE_URL as CHEMBL_BASE
-from .clients.chembl import ChemblClient
-from .clients.pdb import DATA_URL, UNIPROT_ATTRIBUTE, PdbClient
-from .clients.uniprot import UniprotClient
+from .clients.pdb import DATA_URL, UNIPROT_ATTRIBUTE
 
 INSTRUCTIONS = "Thin wrappers over the UniProt, RCSB PDB, and ChEMBL REST APIs."
 
 
-def build_granular_server(cache: ResponseCache | None = None) -> MCPServer:
-    cache = cache if cache is not None else ResponseCache()
-    limiter = RateLimiter(min_interval=0.2)
-    uniprot = UniprotClient(cache=cache, limiter=limiter)
-    pdb = PdbClient(cache=cache, limiter=limiter)
-    chembl = ChemblClient(cache=cache, limiter=limiter)
+def build_granular_server(
+    cache: ResponseCache | None = None, bundle: ClientBundle | None = None
+) -> MCPServer:
+    clients = bundle if bundle is not None else ClientBundle.build(cache)
+    uniprot, pdb, chembl = clients.uniprot, clients.pdb, clients.chembl
 
-    mcp = MCPServer(name="biomcp-granular", version="0.1.0", instructions=INSTRUCTIONS)
+    mcp = MCPServer(
+        name="biomcp-granular",
+        version="0.1.0",
+        instructions=INSTRUCTIONS,
+        lifespan=client_lifespan(clients),
+    )
 
     async def _entry_slice(pdb_id: str, key: str) -> Any:
-        body = await pdb.request_json(
-            "GET", f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}"
-        )
+        body = await pdb.request_json("GET", f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}")
         return (body or {}).get(key)
 
     async def _chembl_get(resource: str, params: dict[str, Any]) -> Any:
@@ -104,7 +105,9 @@ def build_granular_server(cache: ResponseCache | None = None) -> MCPServer:
     async def pdb_search_by_uniprot(accession: str, rows: int = 10) -> Any:
         return await _search(_terminal(UNIPROT_ATTRIBUTE, "exact_match", accession), rows)
 
-    @mcp.tool(description="RCSB search for entries whose non-polymer entity count exceeds a value.")
+    @mcp.tool(
+        description="RCSB search for entries whose non-polymer entity count exceeds a value."
+    )
     async def pdb_search_by_ligand_count(minimum: int = 0, rows: int = 10) -> Any:
         return await _search(
             _terminal("rcsb_entry_info.nonpolymer_entity_count", "greater", minimum), rows
@@ -142,9 +145,7 @@ def build_granular_server(cache: ResponseCache | None = None) -> MCPServer:
 
     @mcp.tool(description="Get the full RCSB entry record for a PDB id.")
     async def pdb_get_entry(pdb_id: str) -> Any:
-        return await pdb.request_json(
-            "GET", f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}"
-        )
+        return await pdb.request_json("GET", f"{DATA_URL}/rest/v1/core/entry/{pdb_id.upper()}")
 
     @mcp.tool(description="Get the rcsb_entry_info block for a PDB id.")
     async def pdb_get_entry_info(pdb_id: str) -> Any:
@@ -190,7 +191,9 @@ def build_granular_server(cache: ResponseCache | None = None) -> MCPServer:
             "activity", {"target_chembl_id": target_chembl_id, "limit": limit}
         )
 
-    @mcp.tool(description="List ChEMBL activities filtered by standard_type and ordered by a field.")
+    @mcp.tool(
+        description="List ChEMBL activities filtered by standard_type and ordered by a field."
+    )
     async def chembl_filter_activities(
         target_chembl_id: str,
         standard_type: str | None = None,
@@ -215,8 +218,9 @@ def build_granular_server(cache: ResponseCache | None = None) -> MCPServer:
         )
 
     @mcp.tool(description="ChEMBL Tanimoto similarity search from a SMILES string.")
-    async def chembl_similarity_search(smiles: str, threshold: int = 70, limit: int = 25) -> Any:
+    async def chembl_similarity_search(
+        smiles: str, threshold: int = 70, limit: int = 25
+    ) -> Any:
         return await _chembl_get(f"similarity/{smiles}/{threshold}", {"limit": limit})
 
-    mcp._biomcp_clients = {"uniprot": uniprot, "pdb": pdb, "chembl": chembl}  # type: ignore[attr-defined]
     return mcp

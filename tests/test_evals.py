@@ -7,10 +7,11 @@ the alias resolution and the grader are tested directly. A silent bug in
 
 from __future__ import annotations
 
-import yaml
+from itertools import pairwise
 from pathlib import Path
 
 import pytest
+import yaml
 
 from harness import estimate_tokens, find_value, grade, resolve_args, walk
 from variants import BY_NAME, VARIANTS, strip_descriptions
@@ -33,7 +34,10 @@ class TestFindValue:
 
     def test_falls_back_to_later_alias(self):
         # This is the shaped-vs-raw case: same fact, different field name.
-        assert find_value([{"primaryAccession": "P00533"}], ["uniprot", "primaryAccession"]) == "P00533"
+        assert (
+            find_value([{"primaryAccession": "P00533"}], ["uniprot", "primaryAccession"])
+            == "P00533"
+        )
 
     def test_searches_newest_response_first(self):
         responses = [{"compound": "OLD"}, {"compound": "NEW"}]
@@ -85,7 +89,9 @@ class TestGrade:
         assert ok
 
     def test_pattern_rejects_wrong_shape(self):
-        ok, _ = grade([{"compound": "aspirin"}], {"keys": ["compound"], "pattern": "CHEMBL[0-9]+"})
+        ok, _ = grade(
+            [{"compound": "aspirin"}], {"keys": ["compound"], "pattern": "CHEMBL[0-9]+"}
+        )
         assert not ok
 
     def test_absent_field_is_not_derivable(self):
@@ -118,8 +124,8 @@ class TestVariantMatrix:
         """A->B->C->D must each differ in one dimension, or the isolation claim
         in the README is false."""
         knobs = [(v.family, v.shaping, v.schema_docs) for v in VARIANTS]
-        for earlier, later in zip(knobs, knobs[1:]):
-            differences = sum(1 for a, b in zip(earlier, later) if a != b)
+        for earlier, later in pairwise(knobs):
+            differences = sum(1 for a, b in zip(earlier, later, strict=True) if a != b)
             assert differences == 1, f"{earlier} -> {later} changes {differences} knobs"
 
     def test_a_is_the_granular_baseline(self):

@@ -35,9 +35,7 @@ class TestEmptyResponses:
 
     @respx.mock
     async def test_200_with_empty_body_is_no_result(self, client):
-        respx.get("https://example.test/q").mock(
-            return_value=httpx.Response(200, content=b"")
-        )
+        respx.get("https://example.test/q").mock(return_value=httpx.Response(200, content=b""))
         assert await client.request_json("GET", "/q") is None
 
     @respx.mock
@@ -47,9 +45,7 @@ class TestEmptyResponses:
 
     @respx.mock
     async def test_204_is_not_retried(self, client):
-        route = respx.get("https://example.test/q").mock(
-            return_value=httpx.Response(204)
-        )
+        route = respx.get("https://example.test/q").mock(return_value=httpx.Response(204))
         await client.request_json("GET", "/q")
         assert route.call_count == 1
 
@@ -68,9 +64,7 @@ class TestRetry:
 
     @respx.mock
     async def test_gives_up_after_max_attempts(self, client):
-        route = respx.get("https://example.test/q").mock(
-            return_value=httpx.Response(500)
-        )
+        route = respx.get("https://example.test/q").mock(return_value=httpx.Response(500))
         with pytest.raises(ApiError):
             await client.request_json("GET", "/q")
         assert route.call_count == 3
@@ -117,9 +111,7 @@ class TestCaching:
 
     @respx.mock
     async def test_failures_are_not_cached(self, client):
-        route = respx.get("https://example.test/q").mock(
-            return_value=httpx.Response(500)
-        )
+        route = respx.get("https://example.test/q").mock(return_value=httpx.Response(500))
         for _ in range(2):
             with pytest.raises(ApiError):
                 await client.request_json("GET", "/q")
@@ -179,3 +171,78 @@ class TestResponseCache:
         cache.put("ns", {"k": 1}, "fine")
         next(tmp_path.glob("*.json")).write_text("{not json")
         assert cache.get("ns", {"k": 1}) is None
+
+
+class TestPartialFailureIsReported:
+    """`_entries` must say which ids failed, not just return fewer rows.
+
+    A short list from an outage and a short list from a small result set look
+    identical to a model unless the difference is stated.
+    """
+
+    @respx.mock
+    async def test_returns_failed_ids_alongside_entries(self, tmp_path):
+        from biomcp.clients.pdb import DATA_URL, PdbClient
+
+        client = PdbClient(
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+            max_attempts=1,
+        )
+        respx.get(f"{DATA_URL}/rest/v1/core/entry/AAAA").mock(
+            return_value=httpx.Response(200, json={"rcsb_id": "AAAA"})
+        )
+        respx.get(f"{DATA_URL}/rest/v1/core/entry/BBBB").mock(return_value=httpx.Response(500))
+        entries, failed = await client._entries(["AAAA", "BBBB"])
+        assert [e["rcsb_id"] for e in entries] == ["AAAA"]
+        assert failed == ["BBBB"]
+        await client.aclose()
+
+    @respx.mock
+    async def test_all_succeeding_reports_no_failures(self, tmp_path):
+        from biomcp.clients.pdb import DATA_URL, PdbClient
+
+        client = PdbClient(
+            cache=ResponseCache(tmp_path, ttl=None),
+            limiter=RateLimiter(min_interval=0.0),
+        )
+        respx.get(f"{DATA_URL}/rest/v1/core/entry/AAAA").mock(
+            return_value=httpx.Response(200, json={"rcsb_id": "AAAA"})
+        )
+        entries, failed = await client._entries(["AAAA"])
+        assert len(entries) == 1 and failed == []
+        await client.aclose()
+
+
+class TestClientContextManager:
+    async def test_closes_on_exit(self, tmp_path):
+        async with ApiClient(
+            "https://example.test", namespace="t", cache=ResponseCache(tmp_path)
+        ) as client:
+            assert not client._client.is_closed
+        assert client._client.is_closed
+
+
+class TestCanonicalAssayType:
+    def test_normalises_any_casing_of_known_types(self):
+        from biomcp.clients.chembl import canonical_assay_type
+
+        for supplied in ("ic50", "IC50", "Ic50", "iC50"):
+            assert canonical_assay_type(supplied) == ("IC50", True)
+
+    def test_preserves_chembls_mixed_case_spelling(self):
+        from biomcp.clients.chembl import canonical_assay_type
+
+        # ChEMBL spells these 'Ki' and 'Kd', not 'KI'/'KD'.
+        assert canonical_assay_type("ki") == ("Ki", True)
+        assert canonical_assay_type("KD") == ("Kd", True)
+
+    def test_unknown_type_passes_through_and_is_flagged(self):
+        from biomcp.clients.chembl import canonical_assay_type
+
+        assert canonical_assay_type("Papp") == ("Papp", False)
+
+    def test_tolerates_surrounding_whitespace(self):
+        from biomcp.clients.chembl import canonical_assay_type
+
+        assert canonical_assay_type("  ic50 ") == ("IC50", True)
