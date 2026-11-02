@@ -26,32 +26,45 @@ answers them in **777 tokens** of context where the 1:1 wrapper needs
 
 ## Results
 
-25 tasks, each with a verifiable answer and an oracle call path per server.
+317 tasks, each with a verifiable answer and an oracle call path per server.
 Four configurations, one knob changed at a time:
 
-| | tools | defn tokens | calls | response tokens | total | answer derivable |
-| --- | --- | --- | --- | --- | --- | --- |
-| **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 26,364 | **28,285** | 21/25 |
-| **B** task-shaped, raw | 6 | 671 | 1.1 | 3,327 | 3,998 | 24/25 |
-| **C** task-shaped, shaped | 6 | 671 | 1.1 | 106 | **777** | 25/25 |
-| **D** C + documented schemas | 6 | 905 | 1.1 | 106 | 1,011 | 25/25 |
+| | tools | defn tokens | calls | response tokens | total context |
+| --- | --- | --- | --- | --- | --- |
+| **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 78,071 | **79,992** |
+| **B** task-shaped, raw | 6 | 671 | 1.0 | 2,437 | 3,108 |
+| **C** task-shaped, shaped | 6 | 671 | 1.0 | 89 | **760** |
+| **D** C + documented schemas | 6 | 905 | 1.0 | 89 | 994 |
 
-Reading the comparisons:
+**105× less context** between the 1:1 wrapper and the task-shaped server with
+shaping on. Reading the comparisons:
 
-- **A → B (tool count).** Collapsing 22 endpoint wrappers into 6 task-shaped
-  tools cuts definition overhead 2.9× and response volume 7.9×. Definitions are
-  paid on every request before any data comes back.
-- **B → C (response shaping).** Projection alone cuts response volume **31×**,
-  from 3,327 tokens to 106. This is the single largest effect, and it is the
-  cheapest to implement.
+- **A → B (tool count).** 22 endpoint wrappers to 6 task-shaped tools cuts
+  definition overhead 2.9× and response volume 32×. Definitions are paid on
+  every request before any data comes back.
+- **B → C (response shaping).** Projection alone cuts response volume a further
+  **27×**, from 2,437 tokens to 89. The single largest effect, and the cheapest
+  to implement.
 - **C → D (schema documentation).** Costs 234 tokens and changes nothing in
   replay, which is expected: documentation affects which tool a *model* picks,
-  and replay follows a fixed path. See the live results below, where it moves
-  but not significantly.
+  and replay follows a fixed path. See the live results below.
 
 Token counts are characters ÷ 4. JSON tokenises worse than prose, so these are
-if anything conservative for the raw variants — the real gap is likely wider,
-not narrower.
+conservative for the raw variants — the real gap is likely wider.
+
+### What the 317-task set stopped measuring
+
+Worth stating plainly: all four variants now answer 317/317, where the earlier
+hand-written 25-task set had variant A at 21/25. That is not an improvement in
+variant A. The task generator only keeps candidates it has proved answerable in
+every configuration, so "derivable" is now 100% by construction and no longer
+carries information.
+
+The four tasks variant A used to fail were the UniProt `size=1` cases, and the
+generated oracle paths request `size=5`, which sidesteps the trap. So the
+generated set is, if anything, generous to the 1:1 wrapper. That finding is
+real and still covered — by the pilot results recorded below and by a dedicated
+unit test — but it is no longer visible in this table.
 
 ### Three things the design bought that were not about size
 
@@ -82,8 +95,8 @@ list from a small result set.
 
 ### Reproducing
 
-Replay runs against a committed response cache (`evals/cache`, 66 entries,
-1.8 MB), so the numbers above reproduce offline and deterministically:
+Replay runs against a committed response cache (`evals/cache`, 640 gzipped
+entries, 4.8 MB), so the numbers above reproduce offline and deterministically:
 
 ```bash
 uv run python evals/run.py --variant all
@@ -297,6 +310,12 @@ does not tell you:
   nanomolar against micromolar.
 - **ChEMBL's `standard_type` is case-sensitive and fails silently.** `IC50`
   matches 26,600 rows where `ic50` matches zero, both HTTP 200.
+- **A SMILES in a URL path needs encoding, and fails silently without it.**
+  `#` is a triple bond and also starts a URL fragment, so `N#Cc1ccccc1` arrives
+  as `N` and matches nothing — no error, just a wrong answer for any nitrile.
+- **ChEMBL mixes numeric strings and integers in one record.** `full_mwt` and
+  `max_phase` are strings while `hbd` and `num_ro5_violations` are integers, so
+  an unshaped consumer can sort "9.5" above "446.91".
 - **UniProt's `size=1` is not the first row of `size=2`.** Asking for one hit
   for `EGFR` returns CBLC; asking for two returns EGFR first. Over-fetch and
   slice. A field-scoped query (`gene:EGFR`) is also more reliable than free
