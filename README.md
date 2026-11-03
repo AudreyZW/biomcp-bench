@@ -20,9 +20,12 @@ This repository holds a server designed around four explicit rules, a
 second server that wraps the same three APIs one-to-one instead, and a harness
 that varies the design and measures what changes.
 
-The short version: across 25 drug-discovery questions, the task-shaped server
-answers them in **777 tokens** of context where the 1:1 wrapper needs
-**28,285** — 36× less — and it gets four more of them right.
+The short version: across **317 drug-discovery questions**, the task-shaped
+server answers them in **761 tokens** of context where the 1:1 wrapper needs
+**79,992** — 105× less. Pointed at the same local model, the task-shaped
+server solves 46.6% of them against the wrapper's 12.3%, a 3.8× difference
+from changing nothing but the tool surface (McNemar, p < 0.0001, with
+documentation held off on both sides).
 
 ## Results
 
@@ -66,7 +69,7 @@ conservative for the raw variants — the real gap is likely wider.
 
 ### What the 317-task set stopped measuring
 
-Worth stating plainly: all four variants now answer 317/317, where the earlier
+Worth stating plainly: all five variants now answer 317/317, where the earlier
 hand-written 25-task set had variant A at 21/25. That is not an improvement in
 variant A. The task generator only keeps candidates it has proved answerable in
 every configuration, so "derivable" is now 100% by construction and no longer
@@ -137,7 +140,7 @@ instead: the model chooses its own arguments and fetches things no oracle path
 asks for, and letting that into the committed fixtures would stop them being
 the curated set the refresh script reproduces.
 
-### Success rate: a local model, and a null result
+### Success rate: a local model, and a grading bug that reversed a result
 
 Replay follows a known-correct path, so it says nothing about whether a model
 *finds* the path. A local model measures that with no API key and no cost:
@@ -147,88 +150,141 @@ ollama pull qwen2.5:3b
 uv run python evals/run.py --mode ollama --variant all
 ```
 
-`qwen2.5:3b`, 25 tasks, same model throughout:
+`qwen2.5:3b`, 317 tasks, same model throughout, one run per variant:
 
 | | tools | calls | solved | tasks hitting a tool error |
 | --- | --- | --- | --- | --- |
-| **A** 1:1 wrappers, raw | 22 | 1.8 | 9/25 | 10 |
-| **B** task-shaped, raw | 6 | 1.0 | 11/25 | 8 |
-| **C** task-shaped, shaped | 6 | 1.2 | 13/25 | 9 |
-| **D** C + documented schemas | 6 | 1.5 | **15/25** | 7 |
+| **A** 1:1 wrappers, raw | 22 | 1.7 | 38/309 (12.3%) | 124 |
+| **B** task-shaped, raw | 6 | 1.1 | 146/316 (46.2%) | 105 |
+| **C** task-shaped, shaped | 6 | 1.1 | 157/316 (49.7%) | 101 |
+| **D** C + documented schemas | 6 | 1.3 | **166/317 (52.4%)** | 85 |
 
-Monotonic, in the predicted direction, 36% to 60%. **And not significant at any
-step.** Every variant runs the same tasks against the same model, so the
-comparisons are paired; McNemar's exact test says:
+Every variant runs the same tasks against the same model, so the comparisons
+are paired. McNemar's exact test, two-sided, on the pairs where both variants
+produced a graded answer:
 
-| comparison | gained | lost | net | p |
-| --- | --- | --- | --- | --- |
-| A → B | 7 | 5 | +2 | 0.774 |
-| B → C | 3 | 1 | +2 | 0.625 |
-| C → D | 3 | 1 | +2 | 0.625 |
-| A → D | 11 | 5 | +6 | 0.210 |
+| comparison | isolates | gained | lost | p | verdict |
+| --- | --- | --- | --- | --- | --- |
+| A → B | tool count | 135 | 29 | **<0.0001** | significant |
+| B → C | response shaping | 16 | 5 | **0.027** | significant |
+| C → D | schema documentation | 18 | 10 | 0.185 | not significant |
+| A → D | all three | 158 | 31 | **<0.0001** | significant |
 
-A tidy monotonic trend is what noise looks like at this sample size. With 25
-tasks you need six unanimous flips before p drops under 0.05, and the best
-comparison here manages +6 net out of 16 disagreements. Note also that A → D
-*lost* five tasks it had previously solved — this is not a clean sweep.
+**Consolidating the tools is the effect that matters**: 12.3% → 46.6% on the
+309 tasks where both A and B answered, a 3.8× improvement from changing
+nothing but the tool surface. Shaping adds a smaller but real gain. Schema
+documentation does not reach significance on its own, and the honest reading
+of `C → D` is that this benchmark cannot distinguish them.
 
-**The decisive check is re-running one variant.** Variant D, same 25 tasks,
-same model, five runs: **15, 17, 15, 13, 15**. A spread of four, which is twice
-the gap between adjacent variants — and variant C's 13 falls inside variant D's
-own range. On this evidence C and D are indistinguishable, and the step from
-each variant to the next is smaller than the noise floor.
+**There is no documentation confound in the headline.** `A → B` and `A → C`
+both have documentation off on *both* sides, so the 3.8× cannot be explained
+by D's extra schema text. Variant E — the same 22 wrappers *with*
+documentation — exists to close the question for `A → D` too, and in replay it
+still costs 82× the context of D.
 
-That is reproducible rather than anecdotal:
+### The grading bug, because it changed the answer
+
+This section first reported a null result, then a significant *regression* for
+response shaping. Both were artefacts of how live answers were graded, and the
+second one had the sign backwards.
+
+A live answer was being graded with the same spec replay uses on a tool
+response. Those are different questions. Replay reads a known key, so a
+`pattern` is a fair check that the field survived projection. Against a model's
+prose the same pattern checks only the *shape* of an answer:
+
+| pattern | tasks | accepts |
+| --- | --- | --- |
+| `.+` | 19 | any non-empty answer at all |
+| `[0-9]+` | 62 | any sentence containing a digit |
+| `[0-9A-Za-z]{4}` | 43 | any four alphanumeric characters, e.g. "that" |
+| `CHEMBL[0-9]+` | 129 | any ChEMBL-shaped id, right or wrong |
+
+272 of 317 tasks carried only a pattern. So 86% of the set could be passed
+without being right, and the variant that emitted the most answer-shaped text
+scored best. Correcting it moved every column, and not by a constant:
+
+| variant | graded on shape | graded on value |
+| --- | --- | --- |
+| A | 172/309 | **38/309** |
+| B | 223/316 | 146/316 |
+| C | 209/316 | 157/316 |
+| D | 228/317 | 166/317 |
+
+Variant A fell by a factor of 4.5 and the others by about a third, because A
+fails by confidently stating something answer-shaped from a raw record it
+could not parse — exactly what a shape-only grader rewards. And `B → C`
+inverted: a significant regression of −14 became a significant gain of +11.
+A grading shortcut did not merely add noise here, it reversed a published
+conclusion, which is why the corrected table is the one above and the broken
+one is still printed here.
+
+The generator now records the value it resolved from the archives for every
+task, and `harness.grade_answer` compares against it — numerically where the
+truth is a number, so 180.2 and 180.16 are the same molecular weight, and at
+an identifier boundary otherwise, because `"CHEMBL25" in "CHEMBL250"` is true
+and was scoring a wrong id as correct. All 317 tasks carry ground truth, and
+`weak_grade` counts any that do not so a success rate is never quoted without
+saying how much of it rests on grading that cannot tell a right answer from a
+well-formed wrong one.
+
+Re-grading cost no model time. Every row stores the model's answer, so:
+
+```bash
+uv run python scripts/regrade.py evals/results/ollama-*.json
+```
+
+re-scores a finished run against the current grader and prints the corrected
+paired tests. That is worth having for its own sake: a grading fix should not
+require five hours of model time to apply.
+
+### What this run does and does not establish
+
+**Variance.** Variant D on 25 tasks, five runs, scored 15, 17, 15, 13, 15 — a
+spread of four, wider than the gap between adjacent variants at that size.
+That is why the task set was sized with `evals/power.py` rather than by eye:
+the headline comparison needs ~96 tasks and the mechanism steps ~219, and 317
+clears both. `--repeats` reports the mean and range per variant, because one
+sampled run cannot separate an effect from variance:
 
 ```bash
 uv run python evals/run.py --mode ollama --variant C,D --repeats 3
 ```
 
-`--repeats` reports the mean and range per variant, because one sampled run
-cannot separate an effect from variance and reporting a single run as though it
-could is the mistake this whole project is about.
+Run the same flag against replay and the range is `317-317`. That contrast is
+the clearest statement of what the two halves of this benchmark are worth.
 
-Run the same flag against replay and the range is `25-25`. That contrast is the
-clearest statement of what the two halves of this benchmark are worth: the
-reproducible half has no variance at all, and the live half has a spread wider
-than the effect it is trying to detect.
+**Absolute numbers mean nothing here.** A 3B local model scores far below
+published leaderboards; MCP-Atlas reports 62% for a frontier model. Read the
+columns against each other, never against someone else's leaderboard. If
+anything a weak model is the more sensitive instrument: a frontier model can
+brute-reason its way past a badly shaped tool, which masks the differences
+this benchmark is trying to see.
 
-Two further confounds, both reported by the runner rather than buried.
+**Upstream flakiness is reported, not buried.** 124 of variant A's tasks hit a
+tool error against 85 of D's. The model picks its own arguments, so it misses
+the pinned cache and reaches live ChEMBL and RCSB, which return intermittent
+500s and malformed-query 400s. That gap is itself a finding — the 22-tool
+server asks the model to construct RCSB attribute paths and ChEMBL ordering
+fields, and it gets them wrong — but some of it is upstream noise.
 
-**Upstream flakiness.** 6 of variant D's 10 misses involved a tool error. The
-model picks its own arguments, so it misses the pinned cache and reaches live
-ChEMBL, which returns intermittent 500s. Only 4 of its misses are clean.
+**Eight tasks were excluded**, all from variant A, where the local model timed
+out rather than answering. Those drop out pairwise rather than scoring as
+misses, which is why A's denominator is 309. The driver now retries a
+transport failure, so a repeat run should lose fewer.
 
-**Tool output is clipped at 20,000 characters before reaching the model**, and
-that is not a neutral limit. `qwen2.5:3b` has a 32k context, and replay
-measures 96 of the 317 tasks as producing more than that from the 1:1 wrapper
-— its median response is 6,241 tokens against 90 for the shaped server, and
-its largest is **504,011**, about sixteen times the whole context and more
-than most frontier models will hold either. A single response can exceed
-everything the model can hold. Clipping spares the
-raw variants the overflow they would really suffer, which flatters them, and it
-can also remove the answer from what the model sees, which penalises them for a
-limit of the harness. So the live column for variant A reports *A with its
-output clipped*, not A as a server. The honest measurement of that cost is the
-replay table, and the runner prints how many responses were clipped.
+**The output clip did not bite this time.** Tool output is clipped at 20,000
+characters before reaching the model, and in the pilot that confounded variant
+A badly. In this run **zero responses were clipped**, because the model chooses
+small page sizes rather than the larger ones the oracle paths request. The
+flip side is that A's live token column (6,112 average) understates its real
+cost by an order of magnitude: the model never successfully fetches the bulk
+that the replay table measures at 78,071.
 
-So the honest summary is two-tier. **Replay is the reproducible result**:
-deterministic, offline, and a 36× context reduction with derivability going
-21/25 → 25/25. **The live run is indicative only** — consistent with the
-design mattering, and nowhere near evidence of it.
-
-What would settle it, given a within-variant spread of four: considerably more
-than 25 tasks, averaged over several runs per variant, with a cache covering
-the arguments a model actually chooses. A stronger model would help too — the
-`--mode live` driver runs against a frontier model with `ANTHROPIC_API_KEY`
-set. As it stands the live half of this benchmark is underpowered by roughly an
-order of magnitude, and saying so is more useful than a chart that implies
-otherwise.
-
-One thing the live run did show that replay structurally cannot: **C → D moved
-at all.** Replay follows a fixed path, so schema documentation is invisible to
-it by construction. The live run is the only place that comparison can happen,
-even if +2 does not carry it.
+**Ground truth is pinned to generation time.** Potency rankings and structure
+counts drift as the archives grow, so a live run months from now may be graded
+against values that have moved. Regenerate the task set with
+`scripts/generate_tasks.py` if that matters.
 
 ## The design rules
 
@@ -305,7 +361,7 @@ Requires Python ≥3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --extra dev
-uv run pytest                       # 39 tests, no network
+uv run pytest                       # 900 tests, no network
 uv run mcp dev src/biomcp/server.py # MCP Inspector
 ```
 
@@ -362,14 +418,14 @@ does not tell you:
   its N3 inhibitor is modelled as a peptide-like polymer.
 
 Neither API documents a rate limit. This client throttles anyway, because a
-benchmark that replays queries across four configurations should not be
+benchmark that replays queries across five configurations should not be
 measuring someone else's load.
 
 ## Development
 
 ```bash
 uv sync --extra dev --extra evals
-uv run pytest -q                      # 169 tests, no network
+uv run pytest -q                      # 900 tests, no network
 uv run ruff check . && uv run ruff format --check .
 uv run python evals/run.py --variant all
 uv run python scripts/smoke_stdio.py  # spawns the server, speaks MCP to it
@@ -391,7 +447,7 @@ layer, the cache and rate limiter, the 317-task benchmark across five
 variants, the replay driver, and two live drivers (local via Ollama, frontier
 via the Anthropic API).
 
-899 tests, no network. They cover the projection functions, the transport
+900 tests, no network. They cover the projection functions, the transport
 layer's retry and empty-body handling, the benchmark's grading and alias
 resolution, the paired significance arithmetic, the power analysis, the task
 generator's templates, every tool end to end against the committed cache, and
