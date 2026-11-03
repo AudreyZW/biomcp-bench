@@ -230,3 +230,66 @@ class TestChatRetry:
         with pytest.raises(httpx.HTTPStatusError):
             await _chat(Refuses(), "http://h", "m", {}, sleep=sleep)
         assert calls["n"] == 1
+
+
+class TestConfigurableOutputLimit:
+    """The clip is a parameter because it changed a published comparison.
+
+    Variant E clipped 72 responses where A-D clipped none, so part of the
+    measured `E -> D` gap was this harness's limit rather than tool count. A
+    number that can move a result should be movable.
+    """
+
+    async def test_a_lower_limit_clips_what_the_default_would_not(self):
+        from helpers_ollama import FakeOllama, FakeToolServer
+        from ollama_driver import run_ollama
+
+        server = FakeToolServer({"t": {"pad": "x" * 500}})
+        client = FakeOllama(
+            [
+                {"message": {"tool_calls": [{"function": {"name": "t", "arguments": {}}}]}},
+                {"message": {"content": "ANSWER: P00533"}},
+            ]
+        )
+        result = await run_ollama(
+            server,
+            {"id": "t", "question": "q", "grade": {"expect": "P00533"}},
+            _Variant(),
+            [],
+            client=client,
+            output_limit=100,
+        )
+        assert result.truncated == 1
+        tool_messages = [m for m in client.requests[-1]["messages"] if m.get("role") == "tool"]
+        # The model saw the clipped payload, not the whole thing.
+        assert len(tool_messages[0]["content"]) == 100
+
+    async def test_a_higher_limit_passes_what_the_default_would_clip(self):
+        from helpers_ollama import FakeOllama, FakeToolServer
+        from ollama_driver import TOOL_OUTPUT_CHAR_LIMIT, run_ollama
+
+        server = FakeToolServer({"t": {"pad": "x" * (TOOL_OUTPUT_CHAR_LIMIT * 2)}})
+        client = FakeOllama(
+            [
+                {"message": {"tool_calls": [{"function": {"name": "t", "arguments": {}}}]}},
+                {"message": {"content": "ANSWER: P00533"}},
+            ]
+        )
+        result = await run_ollama(
+            server,
+            {"id": "t", "question": "q", "grade": {"expect": "P00533"}},
+            _Variant(),
+            [],
+            client=client,
+            output_limit=TOOL_OUTPUT_CHAR_LIMIT * 4,
+        )
+        assert result.truncated == 0
+
+    def test_run_py_mirrors_the_driver_default(self):
+        # run.py names the default itself so replay mode never imports the
+        # driver. Drift between the two would misreport the limit in every
+        # run summary.
+        import run
+        from ollama_driver import TOOL_OUTPUT_CHAR_LIMIT
+
+        assert run.DEFAULT_OUTPUT_LIMIT == TOOL_OUTPUT_CHAR_LIMIT

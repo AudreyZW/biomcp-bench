@@ -52,6 +52,13 @@ RETRY_BACKOFF = 2.0
 # them for a limit of this harness rather than of their design. Either way the
 # live column for variant A reports "A with its output clipped", not A as a
 # server. The honest measurement of that cost is the replay table.
+#
+# It is a parameter rather than a constant because the limit turned out to
+# matter: variant E clipped 72 responses where A-D clipped none, so part of
+# the measured `E -> D` gap was the clip rather than the tool count. A claim
+# about tool design should not rest on a number only this harness can choose,
+# so `--tool-output-limit` makes it movable and the run summary reports what
+# it was set to.
 TOOL_OUTPUT_CHAR_LIMIT = 20_000
 
 SYSTEM = """\
@@ -154,6 +161,7 @@ async def run_ollama(
     model: str = DEFAULT_MODEL,
     host: str = DEFAULT_HOST,
     client: Any | None = None,
+    output_limit: int = TOOL_OUTPUT_CHAR_LIMIT,
 ) -> TaskResult:
     """Drive one task with a local model.
 
@@ -226,12 +234,12 @@ async def run_ollama(
                     # upstream outage reads as the tool design failing.
                     if _reports_error(payload):
                         result.tool_errors.append(f"{name}: upstream unavailable")
-                if len(payload) > TOOL_OUTPUT_CHAR_LIMIT:
+                if len(payload) > output_limit:
                     result.truncated += 1
                 messages.append(
                     {
                         "role": "tool",
-                        "content": payload[:TOOL_OUTPUT_CHAR_LIMIT],
+                        "content": payload[:output_limit],
                         "name": name,
                     }
                 )

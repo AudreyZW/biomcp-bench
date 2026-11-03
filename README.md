@@ -1,5 +1,7 @@
 # biomcp-bench
 
+[![ci](https://github.com/AudreyZW/biomcp-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/AudreyZW/biomcp-bench/actions/workflows/ci.yml)
+
 An MCP server over three public biochemistry archives — UniProt, the RCSB
 Protein Data Bank, and ChEMBL — built to test a claim about tool design.
 
@@ -20,9 +22,9 @@ This repository holds a server designed around four explicit rules, a
 second server that wraps the same three APIs one-to-one instead, and a harness
 that varies the design and measures what changes.
 
-The short version: across **317 drug-discovery questions**, the task-shaped
-server answers them in **761 tokens** of context where the 1:1 wrapper needs
-**79,992** — 105× less. Pointed at the same local model, the task-shaped
+The short version: across **346 drug-discovery questions**, the task-shaped
+server answers them in **767 tokens** of context where the 1:1 wrapper needs
+**73,726** — 96× less. Pointed at the same local model, the task-shaped
 server solves 46.6% of them against the wrapper's 12.3%, a 3.8× difference
 from changing nothing but the tool surface (McNemar, p < 0.0001, with
 documentation held off on both sides). Documenting the wrapper's 22 tools
@@ -31,20 +33,26 @@ helps it — 12.3% → 20.1%, also significant — and still leaves it losing to
 
 ## Results
 
-317 tasks, each with a verifiable answer and an oracle call path per server.
+346 tasks, each with a verifiable answer and an oracle call path per server.
 Five configurations, one knob changed at a time:
 
 | | tools | defn tokens | calls | response tokens | total context |
 | --- | --- | --- | --- | --- | --- |
-| **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 78,071 | **79,992** |
-| **B** task-shaped, raw | 6 | 671 | 1.0 | 2,437 | 3,108 |
-| **C** task-shaped, shaped | 6 | 671 | 1.0 | 90 | **761** |
-| **D** C + documented schemas | 6 | 905 | 1.0 | 90 | 995 |
-| **E** 1:1 wrappers, documented | 22 | 2,973 | 1.4 | 78,071 | 81,044 |
+| **A** 1:1 wrappers, raw | 22 | 1,921 | 1.4 | 71,805 | **73,726** |
+| **B** task-shaped, raw | 6 | 671 | 1.1 | 2,731 | 3,402 |
+| **C** task-shaped, shaped | 6 | 671 | 1.1 | 96 | **767** |
+| **D** C + documented schemas | 6 | 905 | 1.1 | 96 | 1,001 |
+| **E** 1:1 wrappers, documented | 22 | 2,973 | 1.4 | 71,805 | 74,778 |
 
-**105× less context** between the 1:1 wrapper and the task-shaped server with
-shaping on, and **82×** between the two documented servers, E and D. Reading
+**96× less context** between the 1:1 wrapper and the task-shaped server with
+shaping on, and **75×** between the two documented servers, E and D. Reading
 the comparisons:
+
+The ratio was 105× on the original 317 tasks. The 29 coverage tasks added
+afterwards are cheap for every variant — a chemical component record is small
+whichever server fetches it — so they dilute the average rather than change the
+finding. The live success-rate results below are from the frozen 317-task set
+and are labelled as such.
 
 - **A → B (tool count).** 22 endpoint wrappers to 6 task-shaped tools cuts
   definition overhead 2.9× and response volume 32×. Definitions are paid on
@@ -60,7 +68,7 @@ the comparisons:
   consolidating the tools with documenting them. E is the baseline's strongest
   form — the same 22 wrappers, carrying the RCSB attribute paths, the operator
   vocabulary, and the warnings a careful author would write — and it still
-  costs 82× the context of D. Live, it also loses on success rate by 2.7×; see
+  costs 75× the context of D. Live, it also loses on success rate by 2.7×; see
   `E → D` below.
 
 E only became an honest arm after the baseline was documented. Rendering the
@@ -70,9 +78,9 @@ added no parameter descriptions at all, because there were none to keep.
 Token counts are characters ÷ 4. JSON tokenises worse than prose, so these are
 conservative for the raw variants — the real gap is likely wider.
 
-### What the 317-task set stopped measuring
+### What the generated set stopped measuring
 
-Worth stating plainly: all five variants now answer 317/317, where the earlier
+Worth stating plainly: all five variants now answer 346/346, where the earlier
 hand-written 25-task set had variant A at 21/25. That is not an improvement in
 variant A. The task generator only keeps candidates it has proved answerable in
 every configuration, so "derivable" is now 100% by construction and no longer
@@ -84,16 +92,31 @@ generated set is, if anything, generous to the 1:1 wrapper. That finding is
 real and still covered — by the pilot results recorded below and by a dedicated
 unit test — but it is no longer visible in this table.
 
-**And one of the six tools is not exercised at all.** The generated task
-families resolve targets, rank ligands by potency and compare compounds, so
-`get_structure` — single entry, with its bound ligands named — appears in no
-oracle path. That gap hid a real bug for the life of the project:
-`get_structure` passed PDB *entity* ids to the chemical *component* endpoint,
-so it reported every bound ligand as unavailable and returned none. It is
-fixed and unit-tested now, but the benchmark did not catch it and would not
-have. A task family over that path is the obvious next addition; it was left
-out of this run deliberately, so the task set stays comparable with the live
-results below.
+**Two of the six tools were not exercised at all, and that gap shipped a
+bug.** The original task families resolved targets, ranked ligands by potency
+and compared compounds, which left `get_structure` (a single entry with its
+bound ligands named) and `find_similar_compounds` in no oracle path at all.
+`get_structure` was broken for the life of the project: it passed PDB *entity*
+ids to the chemical *component* endpoint, so it reported every bound ligand as
+unavailable and returned none. The unit tests missed it too, because the only
+entry fixture models its inhibitor as a polymer — the one structure where the
+bug is invisible.
+
+Both families now exist, 29 tasks in total, and every one of the six tools is
+called by some oracle path. Adding them turned up something worth reporting on
+its own: **the 22-tool server cannot answer "what ligand is in this entry" at
+all.** It wraps the entry endpoint and the chemical-component endpoint but not
+the non-polymer-entity endpoint that joins them, and an entry's
+`non_polymer_entity_ids` are positional ("2", "3") while the component endpoint
+is keyed by code ("STI"). Wrapping endpoints one-to-one does not give you the
+compositions you need; it gives you the endpoints. So the question names the
+component code, both families are handed it, and the task-shaped server does
+an entry fetch it does not need — a handicap in the direction that makes the
+comparison safe rather than flattering.
+
+One similarity task was rejected by the generator rather than written by hand:
+trastuzumab is a monoclonal antibody with no SMILES, so there is nothing to
+search with. 19 of 20 drugs kept.
 
 ### Three things the design bought that were not about size
 
@@ -150,10 +173,15 @@ Replay follows a known-correct path, so it says nothing about whether a model
 
 ```bash
 ollama pull qwen2.5:3b
-uv run python evals/run.py --mode ollama --variant all
+uv run python evals/run.py --mode ollama --variant all \
+  --tasks evals/tasks-317.yaml
 ```
 
-`qwen2.5:3b`, 317 tasks, same model throughout, one run per variant:
+`qwen2.5:3b`, 317 tasks, same model throughout, one run per variant.
+`evals/tasks-317.yaml` is the frozen set these runs used: `evals/tasks.yaml`
+has since grown the 29 coverage tasks, and regenerating ground truth would
+change answers these results were graded against, so the published set is
+committed separately and named on the command line.
 
 | | tools | calls | solved | tasks hitting a tool error |
 | --- | --- | --- | --- | --- |
@@ -208,6 +236,35 @@ arm that separates them.
 E is also the most expensive variant to run: 3,149 definition tokens and
 11,805 total per task against D's 953 and 3,592. Documenting 22 tools costs
 more than three times D's whole context per task and still loses by 2.7×.
+
+### Running this against a frontier model
+
+**This is the most useful thing a reader could add, and it has not been done.**
+Every success rate here comes from one 3B local model. The obvious objection is
+that a stronger model reasons its way past a badly shaped tool, which would
+shrink these effects — and the honest answer is that nobody has checked.
+
+The mechanism is built and tested, it just needs an API key and a few dollars
+of tokens that this project has not spent:
+
+```bash
+export ANTHROPIC_API_KEY=...
+uv run python evals/run.py --mode live --model claude-sonnet-5-5 \
+  --variant A,D --tasks evals/tasks-317.yaml
+```
+
+`evals/live.py` drives the same agent loop through the Anthropic API, grades
+with the same shared grader as the local driver, and writes the same row
+format, so `scripts/regrade.py` reports the paired tests over it unchanged. It
+is covered by tests against a scripted model, but it has never been pointed at
+the real API — so treat the driver as unproven in the way code that has never
+run for real is always unproven.
+
+`A,D` is the pair worth buying first: it is the headline comparison, 317 tasks
+of it, and at ~4k tokens a task for D and ~8k for A it is the cheapest
+meaningful test of whether any of this survives a better model. Results and
+corrections are welcome as pull requests, including ones that contradict the
+table above.
 
 ### The grading bug, because it changed the answer
 
@@ -287,7 +344,7 @@ sampled run cannot separate an effect from variance:
 uv run python evals/run.py --mode ollama --variant C,D --repeats 3
 ```
 
-Run the same flag against replay and the range is `317-317`. That contrast is
+Run the same flag against replay and the range is `346-346`. That contrast is
 the clearest statement of what the two halves of this benchmark are worth.
 
 **Absolute numbers mean nothing here.** A 3B local model scores far below
@@ -322,14 +379,26 @@ by an order of magnitude: the model never successfully fetches the bulk that
 the replay table measures at 78,071.
 
 Variant E is the exception: **72 responses clipped, across 71 of its 317
-tasks**. Documenting the wrappers is what did it — the parameter descriptions
+tasks** at the default 20,000-character limit. Documenting the wrappers is what did it — the parameter descriptions
 name the attribute paths and ordering fields, the model then asks for the
 larger pages the documentation implies, and the answers come back over the
 limit. So E's 19.6% is a floor rather than a clean measurement, and part of the
 `E → D` gap is clipping rather than tool count alone. The direction is not in
 doubt — E beats A by a significant margin *despite* the clipping, and loses to
-D by 133 tasks to 29 — but a run with a higher limit would be the better test,
-and this benchmark has not done it.
+D by 133 tasks to 29 — but a run with a higher limit is the better test.
+
+So the limit is a parameter now rather than a constant, and the run summary
+reports what it was set to:
+
+```bash
+uv run python evals/run.py --mode ollama --variant E \
+  --tool-output-limit 60000 --tasks evals/tasks-317.yaml
+```
+
+A rerun at 60,000 characters is in progress at the time of writing and its
+numbers are not in this README. Whatever it returns goes in: if E improves
+enough to close on D, the `E → D` figure above is overstated and will be
+corrected here.
 
 **Ground truth is pinned to generation time.** Potency rankings and structure
 counts drift as the archives grow, so a live run months from now may be graded
@@ -411,7 +480,7 @@ Requires Python ≥3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --extra dev
-uv run pytest                       # 905 tests, no network
+uv run pytest                       # 974 tests, no network
 uv run mcp dev src/biomcp/server.py # MCP Inspector
 ```
 
@@ -475,16 +544,23 @@ measuring someone else's load.
 
 ```bash
 uv sync --extra dev --extra evals
-uv run pytest -q                      # 905 tests, no network
+uv run pytest -q                      # 974 tests, no network
+uv run pytest -q --cov                # + coverage, 85% floor
+uv run mypy                           # the package ships py.typed
 uv run ruff check . && uv run ruff format --check .
 uv run python evals/run.py --variant all
 uv run python scripts/smoke_stdio.py  # spawns the server, speaks MCP to it
 uv run python scripts/refresh_cache.py  # the only script that goes online
 ```
 
-CI runs the lint, the format check, the tests and the benchmark on every push,
-so a change that moves the numbers above shows up as a failing build rather
-than a stale README.
+CI runs the lint, the format check, the type check, the tests with their
+coverage floor, and the benchmark on every push, so a change that moves the
+numbers above shows up as a failing build rather than a stale README.
+
+Adding a task family means `scripts/generate_tasks.py --families <name>
+--append`. Append rather than regenerate: a full run re-resolves ground truth
+from archives that have moved since, which would silently change the answers
+the committed results were graded against.
 
 The suite needs no network. The offline integration tests monkeypatch httpx to
 raise, so a cache miss fails loudly instead of quietly becoming a live request
@@ -493,16 +569,18 @@ raise, so a cache miss fails loudly instead of quietly becoming a live request
 ## Status
 
 Working, tested, and measured: both servers, the three clients, the shaping
-layer, the cache and rate limiter, the 317-task benchmark across five
+layer, the cache and rate limiter, the 346-task benchmark across five
 variants, the replay driver, and two live drivers (local via Ollama, frontier
 via the Anthropic API).
 
-905 tests, no network. They cover the projection functions, the transport
-layer's retry and empty-body handling, the benchmark's grading and alias
-resolution, the merging of several result files into one re-graded analysis,
-the paired significance arithmetic, the power analysis, the task generator's
-templates, every tool end to end against the committed cache, and both live
-agent loops — the Anthropic one via a scripted fake model, the
+974 tests and a type check, no network. Coverage of the shipped package is
+**87%**, with an 85% floor enforced in CI — a floor rather than a target, and
+it exists because `get_structure` shipped broken while the suite was green.
+The tests cover the projection functions, the transport layer's retry and
+empty-body handling, the benchmark's grading and alias resolution, the merging
+of several result files into one re-graded analysis, the paired significance
+arithmetic, the power analysis, the task generator's templates, every tool end
+to end against the committed cache, and both live agent loops — the Anthropic one via a scripted fake model, the
 Ollama one through its schema translation, grading and retry behaviour.
 
 A good share of those tests exist because something was wrong. The ones worth
@@ -512,9 +590,17 @@ as a grade for 19 tasks, which passes on any answer at all; and
 `"CHEMBL25" in "CHEMBL250"` was scoring a wrong id as correct.
 
 Not done: a frontier-model run. The `--mode live` driver is written and
-tested against a scripted model but has never been pointed at the API. And
-`get_structure` is still absent from every oracle path, which is how the
-ligand bug above survived.
+tested against a scripted model but has never been pointed at the API — see
+the invitation above, which is the single most useful contribution anyone
+could make to this repository.
+
+`mypy` runs in CI because the package ships `py.typed`, and turning it on paid
+for itself immediately: two latent `None` paths that no test covered, where a
+missing UniProt accession and a missing ChEMBL target id were each passed to a
+client annotated `str`. Neither raised. Each built a request for the literal
+"None", which upstream answers with an empty result — a protein reporting zero
+structures, a target reporting no activities, both indistinguishable from a
+true negative.
 
 ## Licence
 

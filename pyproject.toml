@@ -18,8 +18,11 @@ evals = [
 dev = [
     "pytest==8.4.2",
     "pytest-asyncio==1.3.0",
+    "pytest-cov==7.0.0",
     "respx==0.22.0",
     "ruff==0.14.2",
+    "mypy==1.18.2",
+    "types-pyyaml==6.0.12.20250915",
 ]
 
 [project.scripts]
@@ -38,6 +41,36 @@ packages = ["src/biomcp"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.coverage.run]
+# The shipped package only. The benchmark's entry-point scripts are measured by
+# running them -- the replay benchmark is a CI step -- and folding them in here
+# would drag the number down to 65% while saying nothing about the library.
+source = ["src/biomcp"]
+
+[tool.coverage.report]
+# A floor, not a target, and it exists for a specific reason: `get_structure`
+# shipped broken while the suite was green, because nothing called it and
+# nothing said so. Set just under what the suite actually reaches (87%), so a
+# real regression trips it and ordinary churn does not.
+fail_under = 85
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/biomcp", "evals", "scripts"]
+# The package ships py.typed, so its own annotations are checked strictly.
+# The benchmark is scripts around it and is held to a lower bar: it imports
+# by sys.path and talks to loosely typed JSON, where demanding full
+# annotations would buy noise rather than safety.
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["harness", "variants", "run", "stats", "power", "ollama_driver", "live"]
+ignore_errors = true
 
 [tool.ruff]
 line-length = 96

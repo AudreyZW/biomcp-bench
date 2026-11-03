@@ -257,3 +257,50 @@ class TestAssayTypeCasing:
             server, "find_ligands", target="CHEMBL203", assay_type="IC50", limit=3
         )
         assert lower["total_matches"] == upper["total_matches"]
+
+
+class TestMissingIdentifiers:
+    """Records that arrive without the id the next call needs.
+
+    Both of these were found by turning on a type checker, not by a failing
+    test: the code passed `None` into a client that annotates the parameter
+    `str`. Neither raises -- the request is built with the literal "None",
+    which upstream answers with an empty result set. A protein would have
+    reported zero structures and a target would have reported no activities,
+    both indistinguishable from a true negative.
+    """
+
+    async def test_a_uniprot_record_without_an_accession_skips_the_joins(
+        self, bundle, monkeypatch
+    ):
+        from biomcp.clients.pdb import PdbClient
+
+        async def must_not_be_called(*args, **kwargs):
+            raise AssertionError("joined on a missing accession")
+
+        monkeypatch.setattr(PdbClient, "structures_for_uniprot", must_not_be_called)
+
+        async def one_record_without_accession(*args, **kwargs):
+            return [{"proteinDescription": {}}]
+
+        from biomcp.clients.uniprot import UniprotClient
+
+        monkeypatch.setattr(UniprotClient, "resolve", one_record_without_accession)
+        out = await call(build_server(bundle=bundle), "find_target", query="EGFR", limit=1)
+        assert "joins skipped" in out["matches"][0]["notes"]
+
+    async def test_a_chembl_target_without_an_id_is_reported_not_queried(
+        self, bundle, monkeypatch
+    ):
+        from biomcp.clients.chembl import ChemblClient
+
+        async def target_without_id(*args, **kwargs):
+            return {"pref_name": "something"}
+
+        async def must_not_be_called(*args, **kwargs):
+            raise AssertionError("queried activities for a missing target id")
+
+        monkeypatch.setattr(ChemblClient, "target_for_accession", target_without_id)
+        monkeypatch.setattr(ChemblClient, "activities", must_not_be_called)
+        out = await call(build_server(bundle=bundle), "find_ligands", target="P00533")
+        assert "no target id" in out["error"]

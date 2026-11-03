@@ -118,6 +118,30 @@ DRUGS = [
     ("CHEMBL554", "lapatinib"),
 ]
 
+# Entries with exactly one non-polymer entity, paired with that ligand's
+# chemical component code. One ligand means a ligand property is unambiguous
+# when the grader walks the response, and a deposited entry never changes --
+# these are the only answers in the set that cannot drift.
+#
+# The question names the component code because the 22-tool server has no way
+# to get from an entry to its ligand codes: it wraps the entry endpoint and the
+# chemical-component endpoint, but not the non-polymer-entity endpoint that
+# joins them. Withholding the code would make the task unanswerable for that
+# family for a reason other than tool design, so both families are given it and
+# the shaped server does the extra entry fetch it does not need.
+STRUCTURES = [
+    ("1M17", "AQ4"),
+    ("2ITO", "IRE"),
+    ("2HYY", "STI"),
+    ("3ERT", "OHT"),
+    ("1STP", "BTN"),
+    ("3PP0", "03Q"),
+    ("1UNL", "RRC"),
+    ("4AF3", "VX6"),
+    ("3LAU", "OFI"),
+    ("5P9J", "8E8"),
+]
+
 PDB_ID = "[0-9A-Za-z]{4}"
 CHEMBL_ID = "CHEMBL[0-9]+"
 NUMBER = "[0-9]+"
@@ -298,6 +322,80 @@ def drug_tasks(chembl_id: str, name: str) -> list[dict]:
     ]
 
 
+def structure_tasks(pdb_id: str, comp_id: str) -> list[dict]:
+    """One question per entry, exercising `get_structure` and its ligands.
+
+    This family exists because no oracle path called `get_structure` at all,
+    and that gap is where a real bug lived: the tool passed non-polymer
+    *entity* ids to the chemical *component* endpoint, so every structure
+    reported its bound ligands as unavailable. Unit tests missed it too, since
+    the only entry fixture models its inhibitor as a polymer. A benchmark that
+    never calls a tool cannot notice the tool is broken.
+    """
+    return [
+        {
+            "id": f"{pdb_id.lower()}_ligand_weight",
+            "question": (
+                f"What is the formula weight of ligand {comp_id}, bound in PDB entry {pdb_id}?"
+            ),
+            "grade": {"keys": ["mol_weight", "formula_weight"], "pattern": DECIMAL},
+            "oracle": {
+                "task_shaped": [{"tool": "get_structure", "args": {"pdb_id": pdb_id}}],
+                "granular": [{"tool": "pdb_get_chemcomp", "args": {"comp_id": comp_id}}],
+            },
+        },
+    ]
+
+
+def similarity_tasks(chembl_id: str, name: str) -> list[dict]:
+    """One question per drug, exercising the structural-similarity path.
+
+    The answer is the query compound itself, which is the point rather than a
+    weakness: every other similarity answer drifts as ChEMBL grows, and this
+    one is stable while still forcing the whole path to work -- look the
+    compound up, read its SMILES, hand that SMILES back through a URL path
+    where characters like '#' have to survive encoding. A percent-encoding bug
+    in exactly that step is why the path is worth a task.
+    """
+    return [
+        {
+            "id": f"{name}_closest_analogue",
+            "question": (
+                f"At 95% Tanimoto similarity to {name} ({chembl_id}), which "
+                "ChEMBL compound does the structure search return first?"
+            ),
+            "grade": {"keys": ["compound", "molecule_chembl_id"], "pattern": CHEMBL_ID},
+            "oracle": {
+                "task_shaped": [
+                    {"tool": "compare_compounds", "args": {"chembl_ids": [chembl_id]}},
+                    {
+                        "tool": "find_similar_compounds",
+                        "args": {
+                            "smiles": "$find:smiles|canonical_smiles",
+                            "threshold": 95,
+                            "limit": 1,
+                        },
+                    },
+                ],
+                "granular": [
+                    {
+                        "tool": "chembl_get_molecule",
+                        "args": {"molecule_chembl_id": chembl_id},
+                    },
+                    {
+                        "tool": "chembl_similarity_search",
+                        "args": {
+                            "smiles": "$find:canonical_smiles|smiles",
+                            "threshold": 95,
+                            "limit": 1,
+                        },
+                    },
+                ],
+            },
+        },
+    ]
+
+
 async def run_path(server, path: list[dict]) -> tuple[list, str | None]:
     responses: list = []
     for step in path:
@@ -350,7 +448,25 @@ async def main() -> int:
     parser.add_argument("--out", default=str(ROOT / "evals" / "tasks.yaml"))
     parser.add_argument("--cache-dir", default=str(ROOT / "evals" / "cache"))
     parser.add_argument("--limit-targets", type=int, default=None)
+    parser.add_argument(
+        "--families",
+        default="targets,drugs,structures,similarity",
+        help="comma-separated families to generate",
+    )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help=(
+            "merge into the existing --out instead of replacing it, keeping "
+            "tasks this run did not regenerate"
+        ),
+    )
     args = parser.parse_args()
+    families = {f.strip() for f in args.families.split(",") if f.strip()}
+    unknown = families - {"targets", "drugs", "structures", "similarity"}
+    if unknown:
+        print(f"unknown families: {sorted(unknown)}")
+        return 2
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     cache = ResponseCache(args.cache_dir, ttl=None)
@@ -366,6 +482,9 @@ async def main() -> int:
     genes = TARGETS[: args.limit_targets] if args.limit_targets else TARGETS
     accepted: list[dict] = []
     rejected: list[tuple[str, str]] = []
+
+    if "targets" not in families:
+        genes = []
 
     print(f"resolving {len(genes)} targets", flush=True)
     for gene in genes:
@@ -401,19 +520,53 @@ async def main() -> int:
                 rejected.append((task["id"], reason))
         print(f"  {gene:<8} {accession:<10} kept {kept}/6", flush=True)
 
-    print(f"\nvalidating {len(DRUGS)} drugs", flush=True)
-    for chembl_id, name in DRUGS:
-        kept = 0
-        for task in drug_tasks(chembl_id, name):
-            reason = await validate(task, servers)
-            if reason is None:
-                accepted.append(task)
-                kept += 1
-            else:
-                rejected.append((task["id"], reason))
-        print(f"  {name:<14} kept {kept}/3", flush=True)
+    if "drugs" in families:
+        print(f"\nvalidating {len(DRUGS)} drugs", flush=True)
+        for chembl_id, name in DRUGS:
+            kept = 0
+            for task in drug_tasks(chembl_id, name):
+                reason = await validate(task, servers)
+                if reason is None:
+                    accepted.append(task)
+                    kept += 1
+                else:
+                    rejected.append((task["id"], reason))
+            print(f"  {name:<14} kept {kept}/3", flush=True)
+
+    if "structures" in families:
+        print(f"\nvalidating {len(STRUCTURES)} structures", flush=True)
+        for pdb_id, comp_id in STRUCTURES:
+            for task in structure_tasks(pdb_id, comp_id):
+                reason = await validate(task, servers)
+                if reason is None:
+                    accepted.append(task)
+                else:
+                    rejected.append((task["id"], reason))
+                print(f"  {pdb_id} {comp_id:<5} {reason or 'kept'}", flush=True)
+
+    if "similarity" in families:
+        print(f"\nvalidating {len(DRUGS)} similarity searches", flush=True)
+        for chembl_id, name in DRUGS:
+            for task in similarity_tasks(chembl_id, name):
+                reason = await validate(task, servers)
+                if reason is None:
+                    accepted.append(task)
+                else:
+                    rejected.append((task["id"], reason))
+                print(f"  {name:<14} {reason or 'kept'}", flush=True)
 
     await bundle.aclose()
+
+    if args.append and Path(args.out).exists():
+        # Regenerating the whole file would re-resolve ground truth that has
+        # since drifted, which would silently change the answers the committed
+        # results were graded against. So an append keeps every task it did
+        # not generate, and replaces only ids it did.
+        existing = yaml.safe_load(Path(args.out).read_text()) or []
+        fresh = {t["id"] for t in accepted}
+        carried = [t for t in existing if t["id"] not in fresh]
+        print(f"\ncarrying {len(carried)} existing task(s) forward")
+        accepted = carried + accepted
 
     header = (
         "# Generated by scripts/generate_tasks.py -- do not hand-edit.\n"

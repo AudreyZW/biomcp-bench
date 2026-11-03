@@ -7,7 +7,7 @@
 # `$find:a|b` pulls a value from an earlier response, naming each alias it
 # goes by: shaped responses say `uniprot`, raw ones say `primaryAccession`.
 #
-# 317 tasks.
+# 346 tasks.
 
 - id: egfr_accession
   question: What is the UniProt accession for human EGFR?
@@ -6605,3 +6605,724 @@
     - *id123
     granular:
     - *id124
+- id: 1m17_ligand_weight
+  question: What is the formula weight of ligand AQ4, bound in PDB entry 1M17?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 393.436
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 1M17
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: AQ4
+- id: 2ito_ligand_weight
+  question: What is the formula weight of ligand IRE, bound in PDB entry 2ITO?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 446.902
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 2ITO
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: IRE
+- id: 2hyy_ligand_weight
+  question: What is the formula weight of ligand STI, bound in PDB entry 2HYY?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 493.603
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 2HYY
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: STI
+- id: 3ert_ligand_weight
+  question: What is the formula weight of ligand OHT, bound in PDB entry 3ERT?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 387.514
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 3ERT
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: OHT
+- id: 1stp_ligand_weight
+  question: What is the formula weight of ligand BTN, bound in PDB entry 1STP?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 244.311
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 1STP
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: BTN
+- id: 3pp0_ligand_weight
+  question: What is the formula weight of ligand 03Q, bound in PDB entry 3PP0?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 493.866
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 3PP0
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: 03Q
+- id: 1unl_ligand_weight
+  question: What is the formula weight of ligand RRC, bound in PDB entry 1UNL?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 354.449
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 1UNL
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: RRC
+- id: 4af3_ligand_weight
+  question: What is the formula weight of ligand VX6, bound in PDB entry 4AF3?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 464.586
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 4AF3
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: VX6
+- id: 3lau_ligand_weight
+  question: What is the formula weight of ligand OFI, bound in PDB entry 3LAU?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 295.336
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 3LAU
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: OFI
+- id: 5p9j_ligand_weight
+  question: What is the formula weight of ligand 8E8, bound in PDB entry 5P9J?
+  grade:
+    keys:
+    - mol_weight
+    - formula_weight
+    pattern: '[0-9]+(\.[0-9]+)?'
+    answer: 442.513
+  oracle:
+    task_shaped:
+    - tool: get_structure
+      args:
+        pdb_id: 5P9J
+    granular:
+    - tool: pdb_get_chemcomp
+      args:
+        comp_id: 8E8
+- id: gefitinib_closest_analogue
+  question: At 95% Tanimoto similarity to gefitinib (CHEMBL939), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL939
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL939
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL939
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: imatinib_closest_analogue
+  question: At 95% Tanimoto similarity to imatinib (CHEMBL941), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL2386595
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL941
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL941
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: aspirin_closest_analogue
+  question: At 95% Tanimoto similarity to aspirin (CHEMBL25), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL2296002
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL25
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL25
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: atorvastatin_closest_analogue
+  question: At 95% Tanimoto similarity to atorvastatin (CHEMBL1487), which ChEMBL
+    compound does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL3392029
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL1487
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL1487
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: sildenafil_closest_analogue
+  question: At 95% Tanimoto similarity to sildenafil (CHEMBL192), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL5276310
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL192
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL192
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: paracetamol_closest_analogue
+  question: At 95% Tanimoto similarity to paracetamol (CHEMBL112), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL112
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL112
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL112
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: ibuprofen_closest_analogue
+  question: At 95% Tanimoto similarity to ibuprofen (CHEMBL521), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL5201530
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL521
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL521
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: metformin_closest_analogue
+  question: At 95% Tanimoto similarity to metformin (CHEMBL1431), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL3094198
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL1431
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL1431
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: warfarin_closest_analogue
+  question: At 95% Tanimoto similarity to warfarin (CHEMBL1464), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL1200879
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL1464
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL1464
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: caffeine_closest_analogue
+  question: At 95% Tanimoto similarity to caffeine (CHEMBL113), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL1200569
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL113
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL113
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: morphine_closest_analogue
+  question: At 95% Tanimoto similarity to morphine (CHEMBL70), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL5665374
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL70
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL70
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: diazepam_closest_analogue
+  question: At 95% Tanimoto similarity to diazepam (CHEMBL12), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL543191
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL12
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL12
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: fluoxetine_closest_analogue
+  question: At 95% Tanimoto similarity to fluoxetine (CHEMBL41), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL1257031
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL41
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL41
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: omeprazole_closest_analogue
+  question: At 95% Tanimoto similarity to omeprazole (CHEMBL1503), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL5314366
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL1503
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL1503
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: simvastatin_closest_analogue
+  question: At 95% Tanimoto similarity to simvastatin (CHEMBL1064), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL3349544
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL1064
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL1064
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: erlotinib_closest_analogue
+  question: At 95% Tanimoto similarity to erlotinib (CHEMBL428647), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL1394061
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL428647
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL428647
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: sunitinib_closest_analogue
+  question: At 95% Tanimoto similarity to sunitinib (CHEMBL535), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL3542310
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL535
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL535
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: sorafenib_closest_analogue
+  question: At 95% Tanimoto similarity to sorafenib (CHEMBL1336), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL4297490
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL1336
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL1336
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1
+- id: lapatinib_closest_analogue
+  question: At 95% Tanimoto similarity to lapatinib (CHEMBL554), which ChEMBL compound
+    does the structure search return first?
+  grade:
+    keys:
+    - compound
+    - molecule_chembl_id
+    pattern: CHEMBL[0-9]+
+    answer: CHEMBL3526325
+  oracle:
+    task_shaped:
+    - tool: compare_compounds
+      args:
+        chembl_ids:
+        - CHEMBL554
+    - tool: find_similar_compounds
+      args:
+        smiles: $find:smiles|canonical_smiles
+        threshold: 95
+        limit: 1
+    granular:
+    - tool: chembl_get_molecule
+      args:
+        molecule_chembl_id: CHEMBL554
+    - tool: chembl_similarity_search
+      args:
+        smiles: $find:canonical_smiles|smiles
+        threshold: 95
+        limit: 1

@@ -133,3 +133,60 @@ class TestCuratedInputs:
     def test_drug_names_are_lowercase_identifiers(self):
         for _, name in DRUGS:
             assert name.islower() and name.isalpha()
+
+
+structure_tasks = generate_tasks.structure_tasks
+similarity_tasks = generate_tasks.similarity_tasks
+
+
+class TestCoverageFamilies:
+    """The two families added after `get_structure` shipped broken.
+
+    No oracle path called `get_structure` or `find_similar_compounds`, so the
+    benchmark could not have noticed either was wrong. These tests pin the
+    shape of the paths that now do.
+    """
+
+    def test_a_structure_task_calls_get_structure(self):
+        (task,) = structure_tasks("2HYY", "STI")
+        shaped = task["oracle"]["task_shaped"]
+        assert [s["tool"] for s in shaped] == ["get_structure"]
+        assert shaped[0]["args"] == {"pdb_id": "2HYY"}
+
+    def test_the_granular_path_is_given_the_component_code(self):
+        # The 22-tool server wraps the entry endpoint and the chemical
+        # component endpoint but not the non-polymer entity endpoint that
+        # joins them, so it cannot discover the code itself. Withholding it
+        # would fail that family for a missing wrapper rather than for tool
+        # design, so the question names it and both families get it.
+        (task,) = structure_tasks("2HYY", "STI")
+        granular = task["oracle"]["granular"]
+        assert [s["tool"] for s in granular] == ["pdb_get_chemcomp"]
+        assert granular[0]["args"] == {"comp_id": "STI"}
+        assert "STI" in task["question"]
+
+    def test_a_structure_task_grades_on_a_weight_under_either_name(self):
+        (task,) = structure_tasks("1STP", "BTN")
+        assert task["grade"]["keys"] == ["mol_weight", "formula_weight"]
+
+    def test_a_similarity_task_round_trips_smiles_through_the_search(self):
+        (task,) = similarity_tasks("CHEMBL25", "aspirin")
+        shaped = task["oracle"]["task_shaped"]
+        assert [s["tool"] for s in shaped] == ["compare_compounds", "find_similar_compounds"]
+        # The SMILES is not hardcoded: it is read out of the first response,
+        # which is what forces the encoding path to work.
+        assert shaped[1]["args"]["smiles"].startswith("$find:")
+
+    def test_both_families_use_the_same_threshold(self):
+        (task,) = similarity_tasks("CHEMBL25", "aspirin")
+        shaped = task["oracle"]["task_shaped"][1]["args"]
+        granular = task["oracle"]["granular"][1]["args"]
+        assert shaped["threshold"] == granular["threshold"] == 95
+        assert shaped["limit"] == granular["limit"] == 1
+
+    def test_structure_ids_are_unique(self):
+        # A duplicate entry would silently overwrite a task on append.
+        ids = [pdb_id for pdb_id, _ in generate_tasks.STRUCTURES]
+        comps = [comp for _, comp in generate_tasks.STRUCTURES]
+        assert len(ids) == len(set(ids))
+        assert len(comps) == len(set(comps))

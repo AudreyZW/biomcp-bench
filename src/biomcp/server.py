@@ -119,6 +119,13 @@ def build_server(
         async def annotate(raw: dict[str, Any]) -> dict[str, Any]:
             accession = raw.get("primaryAccession")
             entry = dict(as_uniprot(raw))
+            if not accession:
+                # Without an accession there is nothing to join on, and
+                # passing None through builds a search for the literal
+                # "None" -- a query that succeeds and matches nothing, which
+                # reads as "this protein has no structures".
+                entry["notes"] = "No UniProt accession on this record; joins skipped."
+                return entry
             _, total, _ = await pdb.structures_for_uniprot(accession, rows=1)
             entry["structure_count"] = total
             try:
@@ -252,7 +259,10 @@ def build_server(
                 }
             if not resolved:
                 return {"error": f"No ChEMBL target for accession {target}"}
-            target_id = resolved.get("target_chembl_id")
+            resolved_id = resolved.get("target_chembl_id")
+            if not resolved_id:
+                return {"error": f"ChEMBL target for {target} carries no target id"}
+            target_id = resolved_id
         try:
             rows, total = await chembl.activities(
                 target_id, assay_type=assay_type, min_potency=min_potency, limit=limit
@@ -331,8 +341,13 @@ def build_server(
 def main() -> None:
     import sys
 
-    transport = "streamable-http" if "--http" in sys.argv else "stdio"
-    build_server(shaping="--raw" not in sys.argv).run(transport=transport)
+    server = build_server(shaping="--raw" not in sys.argv)
+    # Spelled out rather than passed as a string: `run` is overloaded per
+    # transport, and only the literal form type-checks.
+    if "--http" in sys.argv:
+        server.run(transport="streamable-http")
+    else:
+        server.run(transport="stdio")
 
 
 if __name__ == "__main__":

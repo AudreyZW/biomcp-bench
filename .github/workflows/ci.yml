@@ -28,10 +28,18 @@ jobs:
       - name: Format check
         run: uv run ruff format --check .
 
+      # The package ships py.typed, so its annotations are a promise to
+      # anyone importing it. Two latent None paths were found here, not by a
+      # failing test: a missing accession and a missing target id were each
+      # passed to a client that annotates the parameter `str`, which builds a
+      # request for the literal "None" and reads back as a true negative.
+      - name: Type check
+        run: uv run mypy
+
       # No network: the suite replays the committed response cache, and the
       # integration tests fail loudly rather than silently reaching upstream.
       - name: Tests
-        run: uv run pytest -q
+        run: uv run pytest -q --cov --cov-report=term
 
       # The benchmark is part of the build. If its numbers move, the README is
       # out of date and that should be visible in a diff, not discovered later.

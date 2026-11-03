@@ -3,6 +3,8 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
 # results are committed on purpose: they are the finding
 !evals/results/.gitkeep
 

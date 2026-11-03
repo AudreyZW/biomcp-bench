@@ -32,6 +32,10 @@ from biomcp.server import build_server
 from harness import estimate_tokens, run_replay
 from variants import BY_NAME, VARIANTS, render_tool_definitions
 
+# Mirrors ollama_driver.TOOL_OUTPUT_CHAR_LIMIT without importing the driver,
+# which replay mode must not require.
+DEFAULT_OUTPUT_LIMIT = 20_000
+
 
 def build_for(family: str, shaping: bool, cache):
     if family == "granular":
@@ -54,6 +58,15 @@ async def main() -> int:
     )
     parser.add_argument("--variant", default="all", help="comma-separated, e.g. B,C")
     parser.add_argument("--tasks", default=str(ROOT / "tasks.yaml"))
+    parser.add_argument(
+        "--tool-output-limit",
+        type=int,
+        default=None,
+        help=(
+            "characters of tool output handed to the model before clipping "
+            "(ollama mode; default 20000)"
+        ),
+    )
     parser.add_argument("--out", default=str(ROOT / "results"))
     parser.add_argument(
         "--cache-dir",
@@ -105,7 +118,11 @@ async def main() -> int:
 
                     result = await run_live(server, task, variant, definitions)
                 elif args.mode == "ollama":
-                    from ollama_driver import DEFAULT_MODEL, run_ollama
+                    from ollama_driver import (
+                        DEFAULT_MODEL,
+                        TOOL_OUTPUT_CHAR_LIMIT,
+                        run_ollama,
+                    )
 
                     result = await run_ollama(
                         server,
@@ -113,6 +130,7 @@ async def main() -> int:
                         variant,
                         definitions,
                         model=args.model or DEFAULT_MODEL,
+                        output_limit=args.tool_output_limit or TOOL_OUTPUT_CHAR_LIMIT,
                     )
                 else:
                     result = await run_replay(server, task, variant, definition_tokens)
@@ -136,12 +154,19 @@ async def main() -> int:
     path = out_dir / f"{args.mode}-{stamp}.json"
     path.write_text(json.dumps({"mode": args.mode, "rows": rows}, indent=1))
 
-    summarise(rows, args.mode, repeats=args.repeats)
+    summarise(
+        rows,
+        args.mode,
+        repeats=args.repeats,
+        limit=args.tool_output_limit or DEFAULT_OUTPUT_LIMIT,
+    )
     print(f"\nwrote {path}")
     return 0
 
 
-def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
+def summarise(
+    rows: list[dict], mode: str, repeats: int = 1, limit: int = DEFAULT_OUTPUT_LIMIT
+) -> None:
     by_variant = defaultdict(list)
     for row in rows:
         by_variant[row["variant"]].append(row)
@@ -181,9 +206,12 @@ def summarise(rows: list[dict], mode: str, repeats: int = 1) -> None:
             denominator = n
             clipped = sum(r.get("truncated", 0) for r in group)
             if clipped:
+                # The limit is named in the note because it is a choice this
+                # harness makes, and a clipped run is not a measurement of the
+                # server alone.
                 notes.append(
                     f"  {name}: {clipped} tool response(s) clipped at the "
-                    "output limit before reaching the model"
+                    f"{limit:,}-character output limit before reaching the model"
                 )
             weak = sum(1 for r in group if r.get("weak_grade")) // max(repeats, 1)
             if weak:
