@@ -12,6 +12,11 @@ pattern. Re-grading recovers that run instead of discarding five hours of it.
 It prints the old and new success rate per variant and the paired tests on the
 corrected outcomes, and `--write` saves a corrected copy alongside the original
 rather than over it.
+
+Several result files merge into one analysis, because variant E was run on its
+own after A-D. Pairing stays by task id, so a cross-run pair is still paired --
+same model, same tasks, same machine -- but it is not simultaneous, and the
+E comparisons are labelled as cross-run where they are.
 """
 
 from __future__ import annotations
@@ -88,14 +93,38 @@ def pair_line(a: str, b: str, by_variant: dict[str, dict[str, bool | None]]) -> 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("results", help="a results JSON written by evals/run.py")
+    parser.add_argument("results", nargs="+", help="results JSON written by evals/run.py")
     parser.add_argument("--tasks", default=str(ROOT / "evals" / "tasks.yaml"))
     parser.add_argument("--write", action="store_true", help="save a corrected copy")
     args = parser.parse_args()
 
-    payload = json.loads(Path(args.results).read_text())
     tasks = {t["id"]: t for t in yaml.safe_load(Path(args.tasks).read_text())}
-    rows = regrade(payload["rows"], tasks)
+    payloads = {Path(f): json.loads(Path(f).read_text()) for f in args.results}
+
+    # Keyed on variant and task so that one file given twice -- the original and
+    # its own regraded copy, say -- cannot double-count a row into the paired
+    # tests. Later files win, and a collision is named rather than resolved
+    # quietly: the glob `ollama-*.json` also matches the 25-task pilot and the
+    # regraded copies, whose rows share task ids with the 317-task run, and
+    # keeping whichever sorted last would put two different runs in one column
+    # while reporting the survivor's own scores as the "before".
+    merged: dict[tuple[str, str], tuple[Path, dict]] = {}
+    collisions: dict[tuple[Path, Path], int] = {}
+    for path, payload in payloads.items():
+        for row in regrade(payload["rows"], tasks):
+            key = (row["variant"], row["task"])
+            if key in merged:
+                loser = merged[key][0]
+                collisions[(loser, path)] = collisions.get((loser, path), 0) + 1
+            merged[key] = (path, row)
+    rows = [row for _, row in merged.values()]
+    for (loser, winner), count in sorted(collisions.items()):
+        print(
+            f"note: {count} row(s) from {loser.name} were superseded by "
+            f"{winner.name}; name the files you mean if that is not what you want"
+        )
+    if collisions:
+        print()
 
     skipped = sum(1 for r in rows if not r.get("regraded"))
     graded = [r for r in rows if r.get("regraded")]
@@ -122,10 +151,27 @@ def main() -> int:
     if len(names) > 2:
         print("  " + pair_line(names[0], names[-1], by_variant))
 
+    # E is the 22-tool server with its parameters documented, so it answers two
+    # questions the A-D chain cannot: whether documentation rescues the granular
+    # surface (A -> E), and whether consolidating tools still wins once
+    # documentation is held equal on both sides (E -> D).
+    if "E" in by_variant:
+        print("\nVariant E, documentation held equal (cross-run pairs, by task id):")
+        for a, b in (("A", "E"), ("E", "D")):
+            if a in by_variant and b in by_variant:
+                print("  " + pair_line(a, b, by_variant))
+
     if args.write:
-        out = Path(args.results).with_suffix(".regraded.json")
-        out.write_text(json.dumps({**payload, "rows": rows, "regraded": True}, indent=1))
-        print(f"\nwrote {out}")
+        # Each input gets its own corrected copy, holding only the rows that
+        # file actually contributed, so a merged analysis never folds one run's
+        # rows into another run's file.
+        for path, payload in payloads.items():
+            kept = [row for source, row in merged.values() if source == path]
+            if not kept:
+                continue
+            out = path.with_suffix(".regraded.json")
+            out.write_text(json.dumps({**payload, "rows": kept, "regraded": True}, indent=1))
+            print(f"\nwrote {out}")
     return 0
 
 

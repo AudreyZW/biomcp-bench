@@ -25,7 +25,9 @@ server answers them in **761 tokens** of context where the 1:1 wrapper needs
 **79,992** — 105× less. Pointed at the same local model, the task-shaped
 server solves 46.6% of them against the wrapper's 12.3%, a 3.8× difference
 from changing nothing but the tool surface (McNemar, p < 0.0001, with
-documentation held off on both sides).
+documentation held off on both sides). Documenting the wrapper's 22 tools
+helps it — 12.3% → 20.1%, also significant — and still leaves it losing to the
+6-tool server by 2.7×.
 
 ## Results
 
@@ -58,7 +60,8 @@ the comparisons:
   consolidating the tools with documenting them. E is the baseline's strongest
   form — the same 22 wrappers, carrying the RCSB attribute paths, the operator
   vocabulary, and the warnings a careful author would write — and it still
-  costs 82× the context of D.
+  costs 82× the context of D. Live, it also loses on success rate by 2.7×; see
+  `E → D` below.
 
 E only became an honest arm after the baseline was documented. Rendering the
 22-tool server with documentation on previously moved its definitions by 1% and
@@ -158,6 +161,7 @@ uv run python evals/run.py --mode ollama --variant all
 | **B** task-shaped, raw | 6 | 1.1 | 146/316 (46.2%) | 105 |
 | **C** task-shaped, shaped | 6 | 1.1 | 157/316 (49.7%) | 101 |
 | **D** C + documented schemas | 6 | 1.3 | **166/317 (52.4%)** | 85 |
+| **E** 1:1 wrappers, documented | 22 | 1.5 | 62/317 (19.6%) | 140 |
 
 Every variant runs the same tasks against the same model, so the comparisons
 are paired. McNemar's exact test, two-sided, on the pairs where both variants
@@ -169,6 +173,8 @@ produced a graded answer:
 | B → C | response shaping | 16 | 5 | **0.027** | significant |
 | C → D | schema documentation | 18 | 10 | 0.185 | not significant |
 | A → D | all three | 158 | 31 | **<0.0001** | significant |
+| A → E | documentation, on 22 tools | 29 | 5 | **<0.0001** | significant |
+| E → D | tool count, documentation equal | 133 | 29 | **<0.0001** | significant |
 
 **Consolidating the tools is the effect that matters**: 12.3% → 46.6% on the
 309 tasks where both A and B answered, a 3.8× improvement from changing
@@ -178,9 +184,30 @@ of `C → D` is that this benchmark cannot distinguish them.
 
 **There is no documentation confound in the headline.** `A → B` and `A → C`
 both have documentation off on *both* sides, so the 3.8× cannot be explained
-by D's extra schema text. Variant E — the same 22 wrappers *with*
-documentation — exists to close the question for `A → D` too, and in replay it
-still costs 82× the context of D.
+by D's extra schema text. Variant E closes the question for `A → D` as well,
+and it took a measurement rather than an argument.
+
+E is the same 22 wrappers *with* their parameters documented — the RCSB
+attribute paths, the operator vocabulary, and the warnings a careful author
+would write. Two results, both significant, and they point in different
+directions:
+
+- **`A → E`: documentation does help a bad tool surface.** 12.3% → 20.1%,
+  +29/−5, p < 0.0001. This contradicts what `C → D` alone would suggest, and
+  the resolution is the interesting part: documentation pays where the surface
+  is confusing and does not where it is already clear. Variant A's tools need
+  the explaining; D's do not.
+- **`E → D`: consolidating tools still wins with documentation held equal on
+  both sides.** 19.6% → 52.4%, +133/−29, p < 0.0001. A 2.7× difference that no
+  amount of schema text accounts for.
+
+So documentation moves the 22-tool server by 7.8 points and consolidation
+moves it by 32.8. Both are real; they are not the same size, and E is the
+arm that separates them.
+
+E is also the most expensive variant to run: 3,149 definition tokens and
+11,805 total per task against D's 953 and 3,592. Documenting 22 tools costs
+more than three times D's whole context per task and still loses by 2.7×.
 
 ### The grading bug, because it changed the answer
 
@@ -231,12 +258,21 @@ well-formed wrong one.
 Re-grading cost no model time. Every row stores the model's answer, so:
 
 ```bash
-uv run python scripts/regrade.py evals/results/ollama-*.json
+uv run python scripts/regrade.py \
+  evals/results/ollama-20261103T001224Z.json \
+  evals/results/ollama-20261103T022237Z.json
 ```
 
 re-scores a finished run against the current grader and prints the corrected
-paired tests. That is worth having for its own sake: a grading fix should not
-require five hours of model time to apply.
+paired tests, merging the A–D run with the separate variant E run so the
+cross-run pairs can be computed. That is worth having for its own sake: a
+grading fix should not require five hours of model time to apply.
+
+Name the files rather than globbing them. `ollama-*.json` also matches the
+25-task pilot and the regraded copies, whose rows share task ids; the script
+reports every superseded row by filename rather than resolving the clash
+silently, but a merge of two different runs into one column is not something
+to discover from a note.
 
 ### What this run does and does not establish
 
@@ -268,18 +304,32 @@ the pinned cache and reaches live ChEMBL and RCSB, which return intermittent
 server asks the model to construct RCSB attribute paths and ChEMBL ordering
 fields, and it gets them wrong — but some of it is upstream noise.
 
+**Variant E needed no re-grading.** It ran after the grader was fixed, so its
+stored outcomes and its re-graded outcomes are identical — 62/317 either way,
+zero rows flipped. Only the A–D run passed through `scripts/regrade.py`.
+
 **Eight tasks were excluded**, all from variant A, where the local model timed
 out rather than answering. Those drop out pairwise rather than scoring as
 misses, which is why A's denominator is 309. The driver now retries a
 transport failure, so a repeat run should lose fewer.
 
-**The output clip did not bite this time.** Tool output is clipped at 20,000
-characters before reaching the model, and in the pilot that confounded variant
-A badly. In this run **zero responses were clipped**, because the model chooses
-small page sizes rather than the larger ones the oracle paths request. The
-flip side is that A's live token column (6,112 average) understates its real
-cost by an order of magnitude: the model never successfully fetches the bulk
-that the replay table measures at 78,071.
+**The output clip did not bite A, and did bite E.** Tool output is clipped at
+20,000 characters before reaching the model, and in the pilot that confounded
+variant A badly. Across A, B, C and D **zero responses were clipped**, because
+the model chooses small page sizes rather than the larger ones the oracle paths
+request. The flip side is that A's live token column understates its real cost
+by an order of magnitude: the model never successfully fetches the bulk that
+the replay table measures at 78,071.
+
+Variant E is the exception: **72 responses clipped, across 71 of its 317
+tasks**. Documenting the wrappers is what did it — the parameter descriptions
+name the attribute paths and ordering fields, the model then asks for the
+larger pages the documentation implies, and the answers come back over the
+limit. So E's 19.6% is a floor rather than a clean measurement, and part of the
+`E → D` gap is clipping rather than tool count alone. The direction is not in
+doubt — E beats A by a significant margin *despite* the clipping, and loses to
+D by 133 tasks to 29 — but a run with a higher limit would be the better test,
+and this benchmark has not done it.
 
 **Ground truth is pinned to generation time.** Potency rankings and structure
 counts drift as the archives grow, so a live run months from now may be graded
@@ -361,7 +411,7 @@ Requires Python ≥3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --extra dev
-uv run pytest                       # 900 tests, no network
+uv run pytest                       # 905 tests, no network
 uv run mcp dev src/biomcp/server.py # MCP Inspector
 ```
 
@@ -425,7 +475,7 @@ measuring someone else's load.
 
 ```bash
 uv sync --extra dev --extra evals
-uv run pytest -q                      # 900 tests, no network
+uv run pytest -q                      # 905 tests, no network
 uv run ruff check . && uv run ruff format --check .
 uv run python evals/run.py --variant all
 uv run python scripts/smoke_stdio.py  # spawns the server, speaks MCP to it
@@ -447,11 +497,12 @@ layer, the cache and rate limiter, the 317-task benchmark across five
 variants, the replay driver, and two live drivers (local via Ollama, frontier
 via the Anthropic API).
 
-900 tests, no network. They cover the projection functions, the transport
+905 tests, no network. They cover the projection functions, the transport
 layer's retry and empty-body handling, the benchmark's grading and alias
-resolution, the paired significance arithmetic, the power analysis, the task
-generator's templates, every tool end to end against the committed cache, and
-both live agent loops — the Anthropic one via a scripted fake model, the
+resolution, the merging of several result files into one re-graded analysis,
+the paired significance arithmetic, the power analysis, the task generator's
+templates, every tool end to end against the committed cache, and both live
+agent loops — the Anthropic one via a scripted fake model, the
 Ollama one through its schema translation, grading and retry behaviour.
 
 A good share of those tests exist because something was wrong. The ones worth
