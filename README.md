@@ -2,8 +2,16 @@
 
 [![ci](https://github.com/AudreyZW/biomcp-bench/actions/workflows/ci.yml/badge.svg)](https://github.com/AudreyZW/biomcp-bench/actions/workflows/ci.yml)
 
-An MCP server over three public biochemistry archives — UniProt, the RCSB
-Protein Data Bank, and ChEMBL — built to test a claim about tool design.
+An MCP server over three public biochemistry archives (UniProt, the RCSB
+Protein Data Bank, and ChEMBL) built to test a claim about tool design.
+
+Across **346 drug-discovery questions**, the task-shaped server answers them
+in **767 tokens** of context where the 1:1 wrapper needs **73,726**, 96× less.
+Pointed at the same local model, the task-shaped server solves 46.6% of them
+against the wrapper's 12.3%, a 3.8× difference from changing nothing but the
+tool surface (McNemar, p < 0.0001, with documentation held off on both sides).
+Documenting the wrapper's 22 tools helps it (12.3% → 20.1%, also significant)
+and still leaves it losing to the 6-tool server by 2.7×.
 
 ## Why this exists
 
@@ -11,7 +19,7 @@ There are already several MCP servers wrapping these databases, and some are
 good. This one is not trying to be a better wrapper. It exists because of a gap
 in how MCP servers get evaluated.
 
-The published benchmarks — MCP-Atlas, MCP-Universe, MCP-Bench — measure *agents
+The published benchmarks (MCP-Atlas, MCP-Universe, MCP-Bench) measure *agents
 against servers*. Top models score somewhere between 43% and 62%, and the
 failures are usually attributed to "inadequate tool usage." But none of those
 benchmarks varies the server. So "inadequate tool usage" is measured as a
@@ -21,15 +29,6 @@ their number, their granularity, the shape of what they return.
 This repository holds a server designed around four explicit rules, a
 second server that wraps the same three APIs one-to-one instead, and a harness
 that varies the design and measures what changes.
-
-The short version: across **346 drug-discovery questions**, the task-shaped
-server answers them in **767 tokens** of context where the 1:1 wrapper needs
-**73,726** — 96× less. Pointed at the same local model, the task-shaped
-server solves 46.6% of them against the wrapper's 12.3%, a 3.8× difference
-from changing nothing but the tool surface (McNemar, p < 0.0001, with
-documentation held off on both sides). Documenting the wrapper's 22 tools
-helps it — 12.3% → 20.1%, also significant — and still leaves it losing to the
-6-tool server by 2.7×.
 
 ## Results
 
@@ -49,8 +48,8 @@ shaping on, and **75×** between the two documented servers, E and D. Reading
 the comparisons:
 
 The ratio was 105× on the original 317 tasks. The 29 coverage tasks added
-afterwards are cheap for every variant — a chemical component record is small
-whichever server fetches it — so they dilute the average rather than change the
+afterwards are cheap for every variant (a chemical component record is small
+whichever server fetches it), so they dilute the average rather than change the
 finding. The live success-rate results below are from the frozen 317-task set
 and are labelled as such.
 
@@ -66,8 +65,8 @@ and are labelled as such.
 - **E → D (tool count, documentation held equal).** The chain above only ever
   adds documentation on top of the 6-tool server, so `A → D` conflates
   consolidating the tools with documenting them. E is the baseline's strongest
-  form — the same 22 wrappers, carrying the RCSB attribute paths, the operator
-  vocabulary, and the warnings a careful author would write — and it still
+  form (the same 22 wrappers, carrying the RCSB attribute paths, the operator
+  vocabulary, and the warnings a careful author would write), and it still
   costs 75× the context of D. Live, it also loses on success rate by 2.7×; see
   `E → D` below.
 
@@ -76,7 +75,7 @@ E only became an honest arm after the baseline was documented. Rendering the
 added no parameter descriptions at all, because there were none to keep.
 
 Token counts are characters ÷ 4. JSON tokenises worse than prose, so these are
-conservative for the raw variants — the real gap is likely wider.
+conservative for the raw variants: the real gap is likely wider.
 
 ### What the generated set stopped measuring
 
@@ -89,8 +88,8 @@ carries information.
 The four tasks variant A used to fail were the UniProt `size=1` cases, and the
 generated oracle paths request `size=5`, which sidesteps the trap. So the
 generated set is, if anything, generous to the 1:1 wrapper. That finding is
-real and still covered — by the pilot results recorded below and by a dedicated
-unit test — but it is no longer visible in this table.
+real and still covered, by the pilot results recorded below and by a dedicated
+unit test, but it is no longer visible in this table.
 
 **Two of the six tools were not exercised at all, and that gap shipped a
 bug.** The original task families resolved targets, ranked ligands by potency
@@ -99,7 +98,7 @@ bound ligands named) and `find_similar_compounds` in no oracle path at all.
 `get_structure` was broken for the life of the project: it passed PDB *entity*
 ids to the chemical *component* endpoint, so it reported every bound ligand as
 unavailable and returned none. The unit tests missed it too, because the only
-entry fixture models its inhibitor as a polymer — the one structure where the
+entry fixture models its inhibitor as a polymer, the one structure where the
 bug is invisible.
 
 Both families now exist, 29 tasks in total, and every one of the six tools is
@@ -111,7 +110,7 @@ the non-polymer-entity endpoint that joins them, and an entry's
 is keyed by code ("STI"). Wrapping endpoints one-to-one does not give you the
 compositions you need; it gives you the endpoints. So the question names the
 component code, both families are handed it, and the task-shaped server does
-an entry fetch it does not need — a handicap in the direction that makes the
+an entry fetch it does not need, a handicap in the direction that makes the
 comparison safe rather than flattering.
 
 One similarity task was rejected by the generator rather than written by hand:
@@ -121,7 +120,7 @@ search with. 19 of 20 drugs kept.
 ### Three things the design bought that were not about size
 
 **The thin wrapper inherits upstream bugs.** UniProt's search returns a
-different top hit at `size=1` than at `size=2` — ask for one result for `EGFR`
+different top hit at `size=1` than at `size=2`: ask for one result for `EGFR`
 and you get CBLC. Variant A passes `size` straight through, so it answers three
 accession questions with a confidently wrong protein (CBLC for EGFR, CDKN3 for
 CDK2, RIN1 for ABL1), and then a fourth wrong answer downstream when the bad
@@ -157,7 +156,7 @@ uv run python evals/run.py --variant all
 That cache is not a convenience. ChEMBL returns intermittent 500s, and an
 earlier run scored variant B at 21/25 purely because the API was unwell
 mid-pass. Tasks whose path hits an upstream error are counted separately and
-excluded from the ratio rather than charged to the tool design — a benchmark
+excluded from the ratio rather than charged to the tool design: a benchmark
 against live flaky endpoints measures their uptime, not your design.
 
 Regenerate it with `uv run python scripts/refresh_cache.py`, the only script
@@ -215,18 +214,18 @@ both have documentation off on *both* sides, so the 3.8× cannot be explained
 by D's extra schema text. Variant E closes the question for `A → D` as well,
 and it took a measurement rather than an argument.
 
-E is the same 22 wrappers *with* their parameters documented — the RCSB
+E is the same 22 wrappers *with* their parameters documented: the RCSB
 attribute paths, the operator vocabulary, and the warnings a careful author
 would write. Two results, both significant, and they point in different
 directions:
 
 - **`A → E`: documentation does help a bad tool surface.** 12.3% → 20.1%,
-  +29/−5, p < 0.0001. This contradicts what `C → D` alone would suggest, and
+  +29/-5, p < 0.0001. This contradicts what `C → D` alone would suggest, and
   the resolution is the interesting part: documentation pays where the surface
   is confusing and does not where it is already clear. Variant A's tools need
   the explaining; D's do not.
 - **`E → D`: consolidating tools still wins with documentation held equal on
-  both sides.** 19.6% → 52.4%, +133/−29, p < 0.0001. A 2.7× difference that no
+  both sides.** 19.6% → 52.4%, +133/-29, p < 0.0001. A 2.7× difference that no
   amount of schema text accounts for.
 
 So documentation moves the 22-tool server by 7.8 points and consolidation
@@ -242,7 +241,7 @@ more than three times D's whole context per task and still loses by 2.7×.
 **This is the most useful thing a reader could add, and it has not been done.**
 Every success rate here comes from one 3B local model. The obvious objection is
 that a stronger model reasons its way past a badly shaped tool, which would
-shrink these effects — and the honest answer is that nobody has checked.
+shrink these effects, and the honest answer is that nobody has checked.
 
 The mechanism is built and tested, it just needs an API key and a few dollars
 of tokens that this project has not spent:
@@ -257,7 +256,7 @@ uv run python evals/run.py --mode live --model claude-sonnet-5-5 \
 with the same shared grader as the local driver, and writes the same row
 format, so `scripts/regrade.py` reports the paired tests over it unchanged. It
 is covered by tests against a scripted model, but it has never been pointed at
-the real API — so treat the driver as unproven in the way code that has never
+the real API, so treat the driver as unproven in the way code that has never
 run for real is always unproven.
 
 `A,D` is the pair worth buying first: it is the headline comparison, 317 tasks
@@ -297,14 +296,14 @@ scored best. Correcting it moved every column, and not by a constant:
 
 Variant A fell by a factor of 4.5 and the others by about a third, because A
 fails by confidently stating something answer-shaped from a raw record it
-could not parse — exactly what a shape-only grader rewards. And `B → C`
-inverted: a significant regression of −14 became a significant gain of +11.
+could not parse, which is exactly what a shape-only grader rewards. And `B → C`
+inverted: a significant regression of -14 became a significant gain of +11.
 A grading shortcut did not merely add noise here, it reversed a published
 conclusion, which is why the corrected table is the one above and the broken
 one is still printed here.
 
 The generator now records the value it resolved from the archives for every
-task, and `harness.grade_answer` compares against it — numerically where the
+task, and `harness.grade_answer` compares against it: numerically where the
 truth is a number, so 180.2 and 180.16 are the same molecular weight, and at
 an identifier boundary otherwise, because `"CHEMBL25" in "CHEMBL250"` is true
 and was scoring a wrong id as correct. All 317 tasks carry ground truth, and
@@ -321,7 +320,7 @@ uv run python scripts/regrade.py \
 ```
 
 re-scores a finished run against the current grader and prints the corrected
-paired tests, merging the A–D run with the separate variant E run so the
+paired tests, merging the A-D run with the separate variant E run so the
 cross-run pairs can be computed. That is worth having for its own sake: a
 grading fix should not require five hours of model time to apply.
 
@@ -333,7 +332,7 @@ to discover from a note.
 
 ### What this run does and does not establish
 
-**Variance.** Variant D on 25 tasks, five runs, scored 15, 17, 15, 13, 15 — a
+**Variance.** Variant D on 25 tasks, five runs, scored 15, 17, 15, 13, 15, a
 spread of four, wider than the gap between adjacent variants at that size.
 That is why the task set was sized with `evals/power.py` rather than by eye:
 the headline comparison needs ~96 tasks and the mechanism steps ~219, and 317
@@ -357,13 +356,13 @@ this benchmark is trying to see.
 **Upstream flakiness is reported, not buried.** 124 of variant A's tasks hit a
 tool error against 85 of D's. The model picks its own arguments, so it misses
 the pinned cache and reaches live ChEMBL and RCSB, which return intermittent
-500s and malformed-query 400s. That gap is itself a finding — the 22-tool
+500s and malformed-query 400s. That gap is itself a finding (the 22-tool
 server asks the model to construct RCSB attribute paths and ChEMBL ordering
-fields, and it gets them wrong — but some of it is upstream noise.
+fields, and it gets them wrong), but some of it is upstream noise.
 
 **Variant E needed no re-grading.** It ran after the grader was fixed, so its
-stored outcomes and its re-graded outcomes are identical — 62/317 either way,
-zero rows flipped. Only the A–D run passed through `scripts/regrade.py`.
+stored outcomes and its re-graded outcomes are identical: 62/317 either way,
+zero rows flipped. Only the A-D run passed through `scripts/regrade.py`.
 
 **Eight tasks were excluded**, all from variant A, where the local model timed
 out rather than answering. Those drop out pairwise rather than scoring as
@@ -379,13 +378,13 @@ by an order of magnitude: the model never successfully fetches the bulk that
 the replay table measures at 78,071.
 
 Variant E is the exception: **72 responses clipped, across 71 of its 317
-tasks** at the default 20,000-character limit. Documenting the wrappers is what did it — the parameter descriptions
+tasks** at the default 20,000-character limit. Documenting the wrappers is what did it: the parameter descriptions
 name the attribute paths and ordering fields, the model then asks for the
 larger pages the documentation implies, and the answers come back over the
 limit. So E's 19.6% is a floor rather than a clean measurement, and part of the
 `E → D` gap is clipping rather than tool count alone. The direction is not in
-doubt — E beats A by a significant margin *despite* the clipping, and loses to
-D by 133 tasks to 29 — but a run with a higher limit is the better test.
+doubt (E beats A by a significant margin *despite* the clipping, and loses to
+D by 133 tasks to 29), but a run with a higher limit is the better test.
 
 So the limit is a parameter now rather than a constant, and the run summary
 reports what it was set to:
@@ -450,7 +449,7 @@ failing the call and leaving the model to guess.
 | `compare_compounds` | Physicochemical properties and clinical phase, side by side |
 | `find_similar_compounds` | Tanimoto similarity search from a SMILES string |
 
-Coordinate files are exposed as a resource (`pdb://{id}/cif`), not a tool —
+Coordinate files are exposed as a resource (`pdb://{id}/cif`), not a tool:
 they are megabytes, and nothing good happens when megabytes enter a context
 window.
 
@@ -524,7 +523,7 @@ does not tell you:
   matches 26,600 rows where `ic50` matches zero, both HTTP 200.
 - **A SMILES in a URL path needs encoding, and fails silently without it.**
   `#` is a triple bond and also starts a URL fragment, so `N#Cc1ccccc1` arrives
-  as `N` and matches nothing — no error, just a wrong answer for any nitrile.
+  as `N` and matches nothing: no error, just a wrong answer for any nitrile.
 - **ChEMBL mixes numeric strings and integers in one record.** `full_mwt` and
   `max_phase` are strings while `hbd` and `num_ro5_violations` are integers, so
   an unshaped consumer can sort "9.5" above "446.91".
@@ -563,8 +562,8 @@ from archives that have moved since, which would silently change the answers
 the committed results were graded against.
 
 The suite needs no network. The offline integration tests monkeypatch httpx to
-raise, so a cache miss fails loudly instead of quietly becoming a live request
-— which matters when one of the three upstream services is unreliable.
+raise, so a cache miss fails loudly instead of quietly becoming a live request,
+which matters when one of the three upstream services is unreliable.
 
 ## Status
 
@@ -574,14 +573,14 @@ variants, the replay driver, and two live drivers (local via Ollama, frontier
 via the Anthropic API).
 
 974 tests and a type check, no network. Coverage of the shipped package is
-**87%**, with an 85% floor enforced in CI — a floor rather than a target, and
+**87%**, with an 85% floor enforced in CI, a floor rather than a target, and
 it exists because `get_structure` shipped broken while the suite was green.
 The tests cover the projection functions, the transport layer's retry and
 empty-body handling, the benchmark's grading and alias resolution, the merging
 of several result files into one re-graded analysis, the paired significance
 arithmetic, the power analysis, the task generator's templates, every tool end
-to end against the committed cache, and both live agent loops — the Anthropic one via a scripted fake model, the
-Ollama one through its schema translation, grading and retry behaviour.
+to end against the committed cache, and both live agent loops: the Anthropic one via a scripted
+fake model, the Ollama one through its schema translation, grading and retry behaviour.
 
 A good share of those tests exist because something was wrong. The ones worth
 naming: a PDB entry's entity ids were being passed to the chemical component
@@ -590,7 +589,7 @@ as a grade for 19 tasks, which passes on any answer at all; and
 `"CHEMBL25" in "CHEMBL250"` was scoring a wrong id as correct.
 
 Not done: a frontier-model run. The `--mode live` driver is written and
-tested against a scripted model but has never been pointed at the API — see
+tested against a scripted model but has never been pointed at the API. See
 the invitation above, which is the single most useful contribution anyone
 could make to this repository.
 
@@ -598,7 +597,7 @@ could make to this repository.
 for itself immediately: two latent `None` paths that no test covered, where a
 missing UniProt accession and a missing ChEMBL target id were each passed to a
 client annotated `str`. Neither raised. Each built a request for the literal
-"None", which upstream answers with an empty result — a protein reporting zero
+"None", which upstream answers with an empty result: a protein reporting zero
 structures, a target reporting no activities, both indistinguishable from a
 true negative.
 

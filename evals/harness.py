@@ -2,8 +2,8 @@
 
 Two drivers:
 
-* **replay** executes each task's oracle path — the minimal correct call
-  sequence for that tool family — against the real (cached) server. It needs no
+* **replay** executes each task's oracle path (the minimal correct
+  call sequence for that tool family) against the real (cached) server. It needs no
   model and costs nothing, and it measures everything that does not require
   one: definition overhead, response volume, call count, and whether the answer
   is still derivable from what the tools returned.

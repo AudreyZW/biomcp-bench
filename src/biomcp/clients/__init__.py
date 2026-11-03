@@ -2,7 +2,7 @@
 
 Each client gets its own rate limiter. They talk to independent services, so a
 single shared limiter would make a slow ChEMBL throttle PDB requests that have
-nothing to do with it — and it would give the three services a combined budget
+nothing to do with it, and it would give the three services a combined budget
 none of them asked for.
 
 The cache *is* shared. It is content-addressed and namespaced per client, so
