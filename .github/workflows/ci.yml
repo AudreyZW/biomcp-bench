@@ -11,8 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Pinned to an exact patch because astral-sh/setup-uv publishes no
+      # floating major tag -- `@v10` does not resolve, and the first push to
+      # a public remote failed on exactly that.
       - name: Install uv
-        uses: astral-sh/setup-uv@v10
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
 
